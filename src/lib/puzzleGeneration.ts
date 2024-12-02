@@ -14,6 +14,7 @@ const openai = new OpenAI({
 
 // Deterministic shuffle using a seed string
 function seededShuffle<T>(array: T[], seed: string): T[] {
+  console.log(`Shuffling array of length ${array.length} with seed ${seed}`);
   const numbers = Array.from(seed).map(char => char.charCodeAt(0));
   let seedNumber = numbers.reduce((acc, num) => acc + num, 0);
   
@@ -23,12 +24,14 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
     const j = seedNumber % (i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+  console.log('Shuffle complete');
   return shuffled;
 }
 
 type AIProvider = 'claude' | 'openai';
 
 export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'claude'): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
+  console.log(`Generating puzzle for date ${date} using provider ${provider}`);
   const dateStr = date.toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric', 
@@ -345,6 +348,7 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
   let responseText: string;
 
   if (provider === 'claude') {
+    console.log('Using Claude for puzzle generation');
     const message = await anthropic.messages.create({
       model: "claude-3-5-latest",
       max_tokens: 1024,
@@ -360,15 +364,16 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
 
     const content = message.content[0];
     if (content.type !== 'text') {
+      console.error('Unexpected non-text response from Claude');
       throw new Error('Expected text response from Claude');
     }
     responseText = content.text;
+    console.log('Received response from Claude');
   } else {
-
+    console.log('Using OpenAI for puzzle generation');
     const openaiPrompt = `Generate a puzzle for ${dateStr} for a word association game using emojis. Create themed puzzles ONLY if this is the exact date of a major holiday.
 
 Respond with a JSON object in this format:
-json
 {
   "solutions": [
     {
@@ -441,9 +446,11 @@ Remember: Even Level 1 should require thought - there should be no immediately o
     });
 
     responseText = completion.choices[0].message.content || '';
+    console.log('Received response from OpenAI');
   }
 
   try {
+    console.log('Parsing AI response');
     const response = JSON.parse(responseText) as {
       solutions: Array<{
         emojis: string[];
@@ -455,6 +462,7 @@ Remember: Even Level 1 should require thought - there should be no immediately o
 
     // Validate the response format
     if (!response.solutions || response.solutions.length !== 4) {
+      console.error('Invalid puzzle format: incorrect number of solutions');
       throw new Error('Invalid puzzle format from AI');
     }
 
@@ -462,17 +470,20 @@ Remember: Even Level 1 should require thought - there should be no immediately o
     const allEmojis = response.solutions.flatMap(s => s.emojis);
     const uniqueEmojis = new Set(allEmojis);
     if (uniqueEmojis.size !== 16) {
+      console.error('Duplicate emojis found in puzzle');
       throw new Error('Duplicate emojis found in puzzle');
     }
 
     // Validate difficulty levels
     const difficulties = new Set(response.solutions.map(s => s.difficulty));
     if (difficulties.size !== 4 || !([1, 2, 3, 4] as const).every(d => difficulties.has(d))) {
+      console.error('Invalid difficulty progression');
       throw new Error('Invalid difficulty progression');
     }
 
     // Use the date string as the seed for consistent shuffling
     const puzzleId = date.toISOString().split('T')[0];
+    console.log(`Shuffling emojis with puzzle ID ${puzzleId}`);
     const shuffledEmojis = seededShuffle(allEmojis, puzzleId);
 
     return {
@@ -491,25 +502,31 @@ Remember: Even Level 1 should require thought - there should be no immediately o
 
 export async function getPuzzleForDate(date: Date, provider: AIProvider = 'claude'): Promise<DailyPuzzle> {
   const puzzleId = date.toISOString().split('T')[0];
+  console.log(`Getting puzzle for date ${puzzleId}`);
   
   // Check if puzzle exists in Redis
+  console.log('Checking Redis for existing puzzle');
   const existingPuzzle = await redis.get<DailyPuzzle>(`puzzle:${puzzleId}`);
   if (existingPuzzle) {
+    console.log('Found existing puzzle in Redis');
     if (typeof existingPuzzle === 'string') {
       try {
         const parsed = JSON.parse(existingPuzzle);
         if (parsed?.emojis?.length) {
+          console.log('Successfully parsed existing puzzle');
           return parsed;
         }
       } catch (e) {
         console.error('Failed to parse puzzle from Redis:', e);
       }
     } else if (existingPuzzle?.emojis?.length) {
+      console.log('Using existing puzzle from Redis');
       return existingPuzzle;
     }
   }
   
   // Generate new puzzle with AI
+  console.log('Generating new puzzle with AI');
   const puzzleBase = await generatePuzzleWithAI(date, provider);
   const newPuzzle: DailyPuzzle = {
     id: puzzleId,
@@ -519,6 +536,7 @@ export async function getPuzzleForDate(date: Date, provider: AIProvider = 'claud
   };
   
   // Store in Redis with 48-hour expiry
+  console.log('Storing new puzzle in Redis');
   await redis.set(`puzzle:${puzzleId}`, JSON.stringify(newPuzzle), { ex: 48 * 60 * 60 });
   
   return newPuzzle;
