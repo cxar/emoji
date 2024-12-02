@@ -1,6 +1,9 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { DailyPuzzle } from '@/types';
+import { Redis } from '@upstash/redis';
+
+const redis = Redis.fromEnv();
 
 // Game launched on December 2, 2024
 const GAME_LAUNCH_DATE = new Date('2024-12-02T12:00:00Z');
@@ -31,20 +34,20 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 }
 
 export async function getTodaysPuzzle(): Promise<DailyPuzzle> {
-  const baseUrl = process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3000'
-      : '';
-      
-  const response = await fetch(`${baseUrl}/api/generate-daily`, {
-    next: {
-      revalidate: 60
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch puzzle');
+  const today = new Date().toISOString().split('T')[0];
+  const puzzle = await redis.get<DailyPuzzle>(`puzzle:${today}`);
+  
+  if (!puzzle) {
+    throw new Error('No puzzle found for today');
   }
-  return response.json();
+
+  if (typeof puzzle === 'string') {
+    try {
+      return JSON.parse(puzzle);
+    } catch (e) {
+      throw new Error('Failed to parse puzzle data');
+    }
+  }
+
+  return puzzle;
 }
