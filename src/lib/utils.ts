@@ -31,57 +31,20 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 }
 
 export async function getTodaysPuzzle(): Promise<DailyPuzzle> {
-  try {
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:3000'
-        : '';
-        
-    const response = await fetch(`${baseUrl}/api/generate-daily`, {
-      next: {
-        revalidate: 60
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch puzzle');
+  const baseUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000'
+      : '';
+      
+  const response = await fetch(`${baseUrl}/api/generate-daily`, {
+    next: {
+      revalidate: 60
     }
-    return response.json();
-  } catch (error) {
-    console.error('Error fetching puzzle:', error);
-    // Fallback puzzle in case of API failure
-    const fallbackSolutions = [
-      {
-        emojis: ['🐶', '🐱', '🐰', '🐹'],
-        name: 'Pets',
-        difficulty: 1 as const
-      },
-      {
-        emojis: ['🍎', '🍌', '🍇', '🍊'],
-        name: 'Fruits',
-        difficulty: 2 as const
-      },
-      {
-        emojis: ['⚽️', '🏀', '🎾', '⚾️'],
-        name: 'Sports Balls',
-        difficulty: 3 as const
-      },
-      {
-        emojis: ['🌞', '🌙', '⭐️', '☁️'],
-        name: 'Sky Objects',
-        difficulty: 4 as const
-      }
-    ];
+  });
 
-    const today = new Date().toISOString().split('T')[0];
-    const allEmojis = fallbackSolutions.flatMap(s => s.emojis);
-    
-    return {
-      id: today,
-      generated: new Date().toISOString(),
-      solutions: fallbackSolutions,
-      emojis: seededShuffle(allEmojis, today) // Use the same seeded shuffle for consistency
-    };
+  if (!response.ok) {
+    throw new Error('Failed to fetch puzzle');
   }
+  return response.json();
 }
