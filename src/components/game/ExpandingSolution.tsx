@@ -38,7 +38,7 @@ export function ExpandingSolution({ solution, startRow, boardHeight }: Expanding
         position: "absolute",
         left: 0,
       }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "z-10 flex flex-col items-center justify-center",
         DIFFICULTY_COLORS[solution.difficulty].solved

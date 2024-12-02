@@ -1,17 +1,22 @@
-import { getTodaysPuzzle } from '@/lib/utils';
+import { getTodaysPuzzle } from '@/lib/puzzleGeneration';
 import { Board } from '@/components/game/Board';
 import { Suspense } from 'react';
 
 function LoadingState() {
   return (
     <div className="animate-pulse">
-      <div className="h-8 w-48 bg-gray-200 rounded mb-4 mx-auto"></div>
-      <div className="h-4 w-96 bg-gray-200 rounded mb-2 mx-auto"></div>
-      <div className="h-4 w-72 bg-gray-200 rounded mb-8 mx-auto"></div>
-      <div className="grid grid-cols-4 gap-2 max-w-md mx-auto">
+      <div className="grid grid-cols-4 gap-2 aspect-square">
         {Array.from({ length: 16 }).map((_, i) => (
           <div key={i} className="aspect-square bg-gray-200 rounded-lg"></div>
         ))}
+      </div>
+      <div className="mt-4 flex justify-center gap-4">
+        <div className="w-20 h-10 bg-gray-200 rounded-lg"></div>
+        <div className="w-24 h-10 bg-gray-200 rounded-lg"></div>
+        <div className="w-20 h-10 bg-gray-200 rounded-lg"></div>
+      </div>
+      <div className="mt-4 flex justify-center">
+        <div className="w-48 h-6 bg-gray-200 rounded"></div>
       </div>
     </div>
   );
@@ -35,9 +40,11 @@ export default function Home() {
         </p>
       </header>
 
-      <Suspense fallback={<LoadingState />}>
-        <GameBoard />
-      </Suspense>
+      <div className="w-full max-w-md mx-auto">
+        <Suspense fallback={<LoadingState />}>
+          <GameBoard />
+        </Suspense>
+      </div>
     </div>
   );
 }

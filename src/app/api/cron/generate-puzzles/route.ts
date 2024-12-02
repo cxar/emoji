@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       return new NextResponse('Puzzle already exists for tomorrow', { status: 200 });
     }
 
-    // Generate tomorrow's puzzle using OpenAI
+    // Generate tomorrow's puzzle 
     await getTomorrowsPuzzle('openai');
     return new NextResponse('Tomorrow\'s puzzle generated successfully', { status: 200 });
   } catch (error) {

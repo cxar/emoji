@@ -96,8 +96,8 @@ LEVEL 1 EXAMPLES:
 "Kitchen appliances" 🔪 🫖 🍶 🥄
 "Sacred space" ⛩️ 🕌 🕍 ⛪
 "Sky watchers" 🔭 🛸 🛩️ 🪽
-"Desert landmarks" 🏰 🗿 🕌 🏛️
-"Winter sports" ⛷️ 🏂 🎿 🛷
+"Desert landmarks" 🏰 🗿 🕌 ️
+"Winter sports" ️ 🏂 🎿 🛷
 "Night sky" 🌙 ⭐ 🌠 ☄️
 "Card games" 🃏 🎴 🀄 🎲
 "Paint tools" 🖌️ 🎨 🖼️ 🎭
@@ -431,15 +431,19 @@ export async function getPuzzleForDate(date: Date, provider: AIProvider = 'claud
   const puzzleId = date.toISOString().split('T')[0];
   
   // Check if puzzle exists in Redis
-  const existingPuzzleStr = await redis.get<string>(`puzzle:${puzzleId}`);
-  if (existingPuzzleStr) {
-    try {
-      const existingPuzzle = JSON.parse(existingPuzzleStr);
-      if (existingPuzzle?.emojis?.length) {
-        return existingPuzzle;
+  const existingPuzzle = await redis.get<DailyPuzzle>(`puzzle:${puzzleId}`);
+  if (existingPuzzle) {
+    if (typeof existingPuzzle === 'string') {
+      try {
+        const parsed = JSON.parse(existingPuzzle);
+        if (parsed?.emojis?.length) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse puzzle from Redis:', e);
       }
-    } catch (e) {
-      console.error('Failed to parse puzzle from Redis:', e);
+    } else if (existingPuzzle?.emojis?.length) {
+      return existingPuzzle;
     }
   }
   
@@ -467,6 +471,3 @@ export async function getTomorrowsPuzzle(provider: AIProvider = 'claude'): Promi
   tomorrow.setDate(tomorrow.getDate() + 1);
   return getPuzzleForDate(tomorrow, provider);
 }
-
-// Make generatePuzzleWithAI available for testing
-export { generatePuzzleWithAI }; 

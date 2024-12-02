@@ -2,8 +2,8 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { DailyPuzzle } from '@/types';
 
-// Game launched on December 1, 2023
-const GAME_LAUNCH_DATE = new Date('2023-12-01T12:00:00Z');
+// Game launched on December 2, 2024
+const GAME_LAUNCH_DATE = new Date('2024-12-02T12:00:00Z');
 
 export function getPuzzleNumber(date: string): number {
   const puzzleDate = new Date(date + 'T12:00:00Z');

@@ -54,8 +54,11 @@ const initialGameState: BoardGameState = {
 
 interface SavedGameState {
   puzzleId: string;
-  state: BoardGameState;
+  state: Omit<BoardGameState, 'incorrectGuesses'> & {
+    incorrectGuesses: string[];
+  };
   solvedGroups: Solution[];
+  tilePositions: TilePosition[];
 }
 
 function generateShareText(puzzle: DailyPuzzle, solvedGroups: Solution[], maxAttempts: number, attempts: number, guesses: Emoji[][]): string {
@@ -100,12 +103,21 @@ function loadSavedState(puzzleId: string): SavedGameState | null {
   return null;
 }
 
-function saveGameState(puzzleId: string, state: BoardGameState, solvedGroups: Solution[]) {
+function saveGameState(
+  puzzleId: string, 
+  state: BoardGameState, 
+  solvedGroups: Solution[], 
+  tilePositions: TilePosition[]
+) {
   try {
     const saveData: SavedGameState = {
       puzzleId,
-      state,
-      solvedGroups
+      state: {
+        ...state,
+        incorrectGuesses: Array.from(state.incorrectGuesses)
+      },
+      solvedGroups,
+      tilePositions
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
   } catch (e) {
@@ -136,20 +148,83 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
   const [showGameOver, setShowGameOver] = useState(false);
   const [solvedGroupsAtGameOver, setSolvedGroupsAtGameOver] = useState<number | null>(null);
 
-  // Initialize tile positions
+  // Load saved state and initialize tile positions
+  const hasInitialized = useRef(false);
+  
   useEffect(() => {
-    if (!boardRef.current) return;
-    
-    const positions: TilePosition[] = puzzle.emojis.map((emoji, index) => ({
-      emoji,
-      gridRow: Math.floor(index / 4),
-      gridCol: index % 4,
-      isSelected: false,
-      isAnimating: false
-    }));
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
 
-    setTilePositions(positions);
-  }, [puzzle.emojis]);
+    const savedState = loadSavedState(puzzle.id);
+    if (savedState) {
+      // Restore saved state
+      setGameState({
+        ...savedState.state,
+        incorrectGuesses: new Set(savedState.state.incorrectGuesses)
+      });
+      setSolvedGroups(savedState.solvedGroups);
+      setCompletedSolutions(new Set(savedState.solvedGroups.map(g => g.name)));
+      
+      // Restore saved tile positions
+      if (savedState.tilePositions) {
+        setTilePositions(savedState.tilePositions);
+      } else {
+        // If no saved positions but we have solved groups, recalculate positions
+        let positions: TilePosition[] = puzzle.emojis.map((emoji, index) => ({
+          emoji,
+          gridRow: Math.floor(index / 4),
+          gridCol: index % 4,
+          isSelected: false,
+          isAnimating: false
+        }));
+
+        // Position solved groups
+        savedState.solvedGroups.forEach((group, groupIndex) => {
+          const availableTiles = positions.filter(tile => 
+            !savedState.solvedGroups
+              .slice(0, groupIndex)
+              .flatMap(g => g.emojis)
+              .includes(tile.emoji)
+          );
+          positions = calculateSolutionPositions(availableTiles, group.emojis, groupIndex);
+        });
+
+        // Reflow remaining tiles
+        const remainingTiles = positions.filter(tile => 
+          !savedState.solvedGroups.flatMap(g => g.emojis).includes(tile.emoji)
+        );
+        if (remainingTiles.length > 0) {
+          const reflowedTiles = calculateReflow(remainingTiles, savedState.solvedGroups.length);
+          positions = positions.map(tile => 
+            remainingTiles.some(t => t.emoji === tile.emoji)
+              ? reflowedTiles.find(t => t.emoji === tile.emoji)!
+              : tile
+          );
+        }
+
+        setTilePositions(positions);
+      }
+    } else {
+      // Initialize new game state
+      const positions: TilePosition[] = puzzle.emojis.map((emoji, index) => ({
+        emoji,
+        gridRow: Math.floor(index / 4),
+        gridCol: index % 4,
+        isSelected: false,
+        isAnimating: false
+      }));
+      setTilePositions(positions);
+    }
+  }, [puzzle.id, puzzle.emojis]);
+
+  // Save state on changes
+  useEffect(() => {
+    if (!hasInitialized.current) return;
+    saveGameState(puzzle.id, {
+      ...gameState,
+      incorrectGuesses: Array.from(gameState.incorrectGuesses)
+    }, solvedGroups, tilePositions);
+  }, [puzzle.id, gameState, solvedGroups, tilePositions]);
 
   // Update selection state
   useEffect(() => {
@@ -198,14 +273,11 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
     // Wait for tiles to reach their positions
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Show the expanding solution
+    // Show the expanding solution immediately after tiles move
     setExpandingSolution({
       group: matchingSolution,
       startRow: targetRow
     });
-
-    // Wait for expansion animation to complete
-    await new Promise(resolve => setTimeout(resolve, 800));
 
     // Add to solved groups and reflow remaining tiles
     setSolvedGroups(prev => [...prev, matchingSolution]);
@@ -215,6 +287,9 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       // Calculate new positions for remaining tiles, starting after the new solution
       return calculateReflow(remainingTiles, targetRow + 1);
     });
+
+    // Wait for expansion animation to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
   const revealUnsolvedGroups = async () => {
@@ -243,7 +318,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       });
 
       // Wait for expansion animation
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Add to solved groups
       setSolvedGroups(prev => [...prev, solution]);
@@ -369,7 +444,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
         const group = unsolvedGroups[index];
         const currentRow = solvedGroups.length + index;
 
-        // Move tiles for this group into position
+        // Move tiles and show expanding solution simultaneously
         setTilePositions(prev => {
           const remainingTiles = prev.filter(tile => 
             !solvedGroups.flatMap(s => s.emojis).includes(tile.emoji) &&
@@ -410,14 +485,21 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
           return [...solvedTiles, ...positionedGroupTiles, ...unpositionedTiles];
         });
 
-        // Wait for tiles to move
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Show expanding solution immediately
+        setExpandingSolution({
+          group: group,
+          startRow: currentRow
+        });
 
-        // Show expanding solution and add to solved groups
+        // Wait for animations to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Add to solved groups
         setSolvedGroups(prev => [...prev, group]);
 
-        // Wait before next group
-        await new Promise(resolve => setTimeout(resolve, 1100));
+        // Clear expanding solution and wait briefly before next group
+        setExpandingSolution(null);
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Move to next group
         revealNextGroup(index + 1);
@@ -485,7 +567,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
         <AnimatePresence mode="wait">
           {solvedGroups.map((group, index) => (
             <ExpandingSolution
-              key={`solution-${group.name}`}
+              key={`solution-${group.name}-${group.difficulty}`}
               solution={group}
               startRow={index}
               boardHeight={boardHeight}

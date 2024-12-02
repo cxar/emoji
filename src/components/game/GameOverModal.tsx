@@ -63,7 +63,7 @@ export function GameOverModal({
                   <>
                     Game Over
                     <div className="text-base font-normal text-gray-600 mt-1">
-                      {solvedGroupsAtGameOver === 0 
+                      {solvedGroupsAtGameOver === 0 || solvedGroupsAtGameOver === null
                         ? "No connections found" 
                         : `Found ${solvedGroupsAtGameOver} of ${totalGroups} connections`}
                     </div>
