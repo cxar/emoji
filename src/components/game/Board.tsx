@@ -419,9 +419,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
 
   // Check if game is over
   useEffect(() => {
-    console.log('Game over check - lives:', gameState.lives, 'gameOver:', gameState.gameOver);
     if (gameState.lives === 0 && !gameState.gameOver && !isRevealingRef.current) {
-      console.log('Game Over triggered');
       isRevealingRef.current = true;
       setIsRevealing(true);
       // Store the number of solved groups at time of loss
@@ -431,8 +429,6 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       const unsolvedGroups = puzzle.solutions
         .filter(solution => !solvedGroups.some(solved => solved.name === solution.name))
         .sort((a, b) => a.difficulty - b.difficulty);
-      
-      console.log('Unsolved groups:', unsolvedGroups);
 
       const revealNextGroup = async (index: number) => {
         if (index >= unsolvedGroups.length) {
