@@ -365,7 +365,69 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
     responseText = content.text;
   } else {
 
-    const newPrompt = systemPrompt + '\n\n' + prompt;
+    const openaiPrompt = `Generate a puzzle for ${dateStr} for a word association game using emojis. Create themed puzzles ONLY if this is the exact date of a major holiday.
+
+Respond with a JSON object in this format:
+json
+{
+  "solutions": [
+    {
+      "emojis": ["emoji1", "emoji2", "emoji3", "emoji4"],
+      "name": "group name",
+      "difficulty": 1,
+      "explanation": "Why this group works"
+    }
+  ]
+}
+
+
+## Core Requirements
+- Create exactly 4 groups of 4 emojis each (16 total emojis)
+- Each emoji must be used exactly once (NO DUPLICATES ALLOWED)
+- Each group must have a clear, defensible connection between all items
+- Groups should progress from somewhat challenging to very challenging
+- Simple categorical relationships are not acceptable at any level
+
+## Difficulty Levels
+
+### Level 1: Functional Parallels
+- Items that serve similar purposes in different contexts
+- Example: "Path Makers" 🕷️ ✏️ ⛵ ✈️ (each leaves trails: spider webs, pencil marks, boat wakes, contrails)
+- Should require some thought but connections are discoverable
+
+### Level 2: Process & Transformation
+- Items unified by how they change or affect their environment
+- Example: "Hidden Builders" 🐜 🦠 🌱 🫀 (each constructs complex systems invisibly)
+- Should require understanding of how things work or behave
+
+### Level 3: Metaphorical & Conceptual
+- Items connected by abstract or symbolic relationships
+- Example: "Memory Keepers" 📸 💍 🪦 🧬 (each preserves history: photos capture moments, rings symbolize promises, graves remember lives, DNA carries ancestry)
+- Should require lateral thinking and cultural knowledge
+
+### Level 4: Multi-layered Connections
+- Items linked by complex, multi-step logical relationships
+- Example: "Truth Tellers" 🔬 👁️ ⚖️ 🌡️ (each reveals reality but in different domains: microscope shows invisible world, eye witnesses events, scales measure objective truth, thermometer reveals hidden energy state)
+- Should create an "aha moment" when the sophisticated connection is discovered
+
+## Connection Strategies
+- Look for items that create similar effects through different mechanisms
+- Consider how different items might solve similar problems across scales
+- Think about how items might mirror each other's behaviors in unexpected contexts
+- Look for parallel processes in different domains (microscopic/macroscopic, natural/artificial)
+- Consider items that serve as bridges or transformers between states
+- Think about how different items preserve, transmit, or transform information
+
+## Quality Standards
+- Every group should reveal an insight about how things relate
+- Connections should be specific and precise, not vague or general
+- Simple category groups like "animals" or "weather" are not acceptable
+- Avoid surface-level similarities (color, shape, size)
+- Focus on function, process, behavior, and conceptual parallels
+- All connections must be logically defensible when explained
+- Holiday themes should add complexity, not reduce it
+
+Remember: Even Level 1 should require thought - there should be no immediately obvious groupings.` 
 
     const completion = await openai.chat.completions.create({
       model: "o1-preview",
@@ -373,7 +435,7 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
       messages: [
         {
           role: "user",
-          content: newPrompt
+          content: openaiPrompt
         }
       ],
     });
