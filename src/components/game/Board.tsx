@@ -105,7 +105,7 @@ function loadSavedState(puzzleId: string): SavedGameState | null {
 
 function saveGameState(
   puzzleId: string, 
-  state: BoardGameState, 
+  state: Omit<BoardGameState, 'incorrectGuesses'> & { incorrectGuesses: Set<string> | string[] }, 
   solvedGroups: Solution[], 
   tilePositions: TilePosition[]
 ) {
@@ -114,7 +114,9 @@ function saveGameState(
       puzzleId,
       state: {
         ...state,
-        incorrectGuesses: Array.from(state.incorrectGuesses)
+        incorrectGuesses: Array.isArray(state.incorrectGuesses) 
+          ? state.incorrectGuesses 
+          : Array.from(state.incorrectGuesses)
       },
       solvedGroups,
       tilePositions
@@ -223,7 +225,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
     saveGameState(puzzle.id, {
       ...gameState,
       incorrectGuesses: Array.from(gameState.incorrectGuesses)
-    }, solvedGroups, tilePositions);
+    } as SavedGameState['state'], solvedGroups, tilePositions);
   }, [puzzle.id, gameState, solvedGroups, tilePositions]);
 
   // Update selection state

@@ -28,7 +28,7 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 
 type AIProvider = 'claude' | 'openai';
 
-async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'claude'): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
+export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'claude'): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
   const dateStr = date.toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric', 
