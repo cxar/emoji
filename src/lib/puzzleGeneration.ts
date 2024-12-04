@@ -371,9 +371,9 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
     console.log('Received response from Claude');
   } else {
     console.log('Using OpenAI for puzzle generation');
-    const openaiPrompt = `Generate a puzzle for ${dateStr} for a word association game using emojis. Create themed puzzles ONLY if this is the exact date of a major holiday.
+    const openaiPrompt = `
+Generate a complex and challenging emoji-based word association puzzle for the given date (${dateStr}). This puzzle is NOT holiday-themed unless the given date aligns with a major holiday. Your output should be a single JSON object with the following structure:
 
-Respond with a JSON object in this format:
 {
   "solutions": [
     {
@@ -381,58 +381,68 @@ Respond with a JSON object in this format:
       "name": "group name",
       "difficulty": 1,
       "explanation": "Why this group works"
+    },
+    {
+      "emojis": ["emoji5", "emoji6", "emoji7", "emoji8"],
+      "name": "group name",
+      "difficulty": 2,
+      "explanation": "Why this group works"
+    },
+    {
+      "emojis": ["emoji9", "emoji10", "emoji11", "emoji12"],
+      "name": "group name",
+      "difficulty": 3,
+      "explanation": "Why this group works"
+    },
+    {
+      "emojis": ["emoji13", "emoji14", "emoji15", "emoji16"],
+      "name": "group name",
+      "difficulty": 4,
+      "explanation": "Why this group works"
     }
   ]
 }
+Requirements & Guidelines:
 
+Overall Structure:
 
-## Core Requirements
-- Create exactly 4 groups of 4 emojis each (16 total emojis)
-- Each emoji must be used exactly once (NO DUPLICATES ALLOWED)
-- Each group must have a clear, defensible connection between all items
-- Groups should progress from somewhat challenging to very challenging
-- Simple categorical relationships are not acceptable at any level
+Exactly 4 sets of 4 unique emojis (16 total unique emojis, no repeats).
+Each set must have a strong, specific connection that can be clearly explained.
+Difficulty should range from relatively straightforward to quite challenging across the four sets.
+The puzzle should force players to think: some emojis might appear to fit into multiple potential categories, causing misdirection.
+Types of Sets:
 
-## Difficulty Levels
+Level 1 (Function Set, Difficulty ~1/10)
+Four items that share a very specific everyday function or role.
+Example (not to use): Four items that serve as writing tools.
+The connection should be practical but not glaringly obvious at a glance.
+Level 2 (Property Set, Difficulty ~3/10)
+Four items sharing a particular notable property or trait.
+The trait should be more nuanced than just color or broad category. Consider properties like how they operate under certain conditions, what distinctive resource they utilize, or a unique trait they all demonstrate.
+Level 3 (Abstract/Conceptual Set, Difficulty ~5/10)
+Four items tied together by a more abstract, underlying concept rather than a direct physical property or function.
+The link might involve how they represent certain patterns, systems, or symbolic meanings in different contexts.
+Level 4 (Highly Conceptual/Technical Set, Difficulty ~7/10)
+Four items connected by a complex conceptual framework, possibly spanning multiple domains (nature, technology, culture, science).
+These might be items that all play a role in a sophisticated system (e.g., different stages of a complex process, different components in a theoretical model, or different symbolic representations of a high-level concept).
+This set should be deeply challenging and require significant insight to understand the common thread.
+Quality Checks:
 
-### Level 1: Functional Parallels
-- Items that serve similar purposes in different contexts
-- Example: "Path Makers" 🕷️ ✏️ ⛵ ✈️ (each leaves trails: spider webs, pencil marks, boat wakes, contrails)
-- Should require some thought but connections are discoverable
+No process chains: we are not describing a step-by-step progression this time, just sets bound by common concepts.
+Connections must be logical, specific, and defensible. Avoid loose, vague themes.
+Avoid trivial categories (like “all four are fruits” or “all four are red”).
+Each chosen emoji should uniquely fit its intended category and not be too obviously placed.
+The explanation should clarify the logic behind each set.
+Novelty & Variation:
 
-### Level 2: Process & Transformation
-- Items unified by how they change or affect their environment
-- Example: "Hidden Builders" 🐜 🦠 🌱 🫀 (each constructs complex systems invisibly)
-- Should require understanding of how things work or behave
+Strive for originality and diversity in chosen emojis.
+Consider mixing natural, technological, symbolic, and cultural emojis to keep players guessing.
+Avoid repeating the same logic or type of connection across multiple sets.
+Formatting:
 
-### Level 3: Metaphorical & Conceptual
-- Items connected by abstract or symbolic relationships
-- Example: "Memory Keepers" 📸 💍 🪦 🧬 (each preserves history: photos capture moments, rings symbolize promises, graves remember lives, DNA carries ancestry)
-- Should require lateral thinking and cultural knowledge
-
-### Level 4: Multi-layered Connections
-- Items linked by complex, multi-step logical relationships
-- Example: "Truth Tellers" 🔬 👁️ ⚖️ 🌡️ (each reveals reality but in different domains: microscope shows invisible world, eye witnesses events, scales measure objective truth, thermometer reveals hidden energy state)
-- Should create an "aha moment" when the sophisticated connection is discovered
-
-## Connection Strategies
-- Look for items that create similar effects through different mechanisms
-- Consider how different items might solve similar problems across scales
-- Think about how items might mirror each other's behaviors in unexpected contexts
-- Look for parallel processes in different domains (microscopic/macroscopic, natural/artificial)
-- Consider items that serve as bridges or transformers between states
-- Think about how different items preserve, transmit, or transform information
-
-## Quality Standards
-- Every group should reveal an insight about how things relate
-- Connections should be specific and precise, not vague or general
-- Simple category groups like "animals" or "weather" are not acceptable
-- Avoid surface-level similarities (color, shape, size)
-- Focus on function, process, behavior, and conceptual parallels
-- All connections must be logically defensible when explained
-- Holiday themes should add complexity, not reduce it
-
-Remember: Even Level 1 should require thought - there should be no immediately obvious groupings.` 
+Respond with ONLY the JSON object, nothing else.
+Do not quote or format the JSON output with backticks in the final response.
+Use these refined instructions to produce a challenging (but not too challenging), satisfying, multi-layered puzzle that encourages deeper thinking without relying on process chains.` 
 
     const completion = await openai.chat.completions.create({
       model: "o1-preview",
