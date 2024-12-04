@@ -1,4 +1,4 @@
-import { ClientBoard } from '@/components/game/ClientBoard';
+import { ClientBoard } from '@/components/game';
 
 export default function Home() {
   return (

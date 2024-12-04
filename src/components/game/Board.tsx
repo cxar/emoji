@@ -8,7 +8,6 @@ import { GameTile } from './GameTile';
 import { ExpandingSolution } from './ExpandingSolution';
 import { TilePosition, calculateReflow, calculateSolutionPositions } from './boardLogic';
 import { GameOverModal } from './GameOverModal';
-import { useGameDate } from './ClientDateProvider';
 
 // Color scheme similar to NYT Connections
 export const DIFFICULTY_COLORS = {
@@ -134,7 +133,6 @@ function getGuessKey(emojis: Emoji[]): string {
 }
 
 export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
-  const date = useGameDate();
   const [gameState, setGameState] = useState<BoardGameState>(initialGameState);
   const [solvedGroups, setSolvedGroups] = useState<Solution[]>([]);
   const [showMessage, setShowMessage] = useState<string | null>(null);
