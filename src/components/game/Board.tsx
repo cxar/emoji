@@ -36,6 +36,14 @@ interface ExpandingSolutionState {
   onComplete?: () => void;
 }
 
+// Add this at the top level of the file, matching ExpandingSolution
+const bgColors = {
+  1: '#fef9c3', // yellow-200
+  2: '#bbf7d0', // green-200
+  3: '#bfdbfe', // blue-200
+  4: '#e9d5ff'  // purple-200
+};
+
 export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
   const [gameState, setGameState] = useState<BoardGameState>(initialGameState);
   const [solvedGroups, setSolvedGroups] = useState<Solution[]>([]);
@@ -466,14 +474,11 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
         {solvedGroups.map((group, index) => (
           <div
             key={`static-${group.name}`}
-            className={cn(
-              "absolute top-0 left-0 w-full flex flex-col items-center justify-center z-10",
-              DIFFICULTY_COLORS[group.difficulty].solved
-            )}
+            className="absolute top-0 left-0 w-full flex flex-col items-center justify-center z-10 rounded-lg"
             style={{
               height: tileSize + "px",
               transform: `translateY(${index * (tileSize + gap)}px)`,
-              borderRadius: "0.5rem"
+              backgroundColor: bgColors[group.difficulty]
             }}
           >
             <span className="font-bold text-black/80 block text-center">
