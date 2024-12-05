@@ -2,6 +2,7 @@ import { Redis } from '@upstash/redis';
 import { DailyPuzzle, Solution } from "@/types";
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import { seededShuffle } from '@/lib/utils';
 
 // Initialize Redis and AI clients
 const redis = Redis.fromEnv();
@@ -12,25 +13,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Deterministic shuffle using a seed string
-function seededShuffle<T>(array: T[], seed: string): T[] {
-  console.log(`Shuffling array of length ${array.length} with seed ${seed}`);
-  const numbers = Array.from(seed).map(char => char.charCodeAt(0));
-  let seedNumber = numbers.reduce((acc, num) => acc + num, 0);
-  
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    seedNumber = (seedNumber * 1664525 + 1013904223) % 4294967296;
-    const j = seedNumber % (i + 1);
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  console.log('Shuffle complete');
-  return shuffled;
-}
-
 type AIProvider = 'claude' | 'openai';
 
-export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'claude'): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
+export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'openai'): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
   console.log(`Generating puzzle for date ${date} using provider ${provider}`);
   const dateStr = date.toLocaleDateString('en-US', { 
     month: 'long', 
@@ -38,322 +23,88 @@ export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'c
     year: 'numeric' 
   });
 
-  const systemPrompt = `You generate daily puzzles for a word association game. Each puzzle needs 16 unique emojis that form 4 groups of 4, with increasing difficulty (1-4). NO DUPLICATE EMOJIS ALLOWED.
+  const prompt = `
+Generate a complex, intriguing emoji-based word association puzzle for the given date (${dateStr}), presented as a single JSON object. The puzzle should not be holiday-themed unless it coincides with a major holiday. It should stand independently and captivate players with unexpected yet logical connections that encourage thoughtful deduction and insight.
+If the date is a major holiday, the puzzle should be themed around that holiday.
 
-DIFFICULTY LEVELS:
-1. Clear category but interesting
-2. Thematic connections requiring some thought
-3. Cultural or conceptual links
-4. Surprising but logical connections
+Requirements:
+Overall Structure:
+• Provide exactly 4 sets of 4 unique emojis (16 total unique emojis).
+• Collect all 4 sets into a "solutions" array within a single JSON object. For example:
 
-LEVEL 1 EXAMPLES:
-"Winged hunters" 🦅 🦇 🦉 🐝
-"Desert patrol" 🦂 🦎 🐪 🦏
-"Mountain crew" 🦙 🦬 🐐 🦫
-"Ocean giants" 🐋 🦈 🐳 🦑
-"Forest scouts" 🦊 🦝 🦡 🦘
-"Garden helpers" 🌱 🪴 🪜 🚿
-"Kitchen tools" 🫖 🍶 🥄 🫙
-"Ancient vessels" 🏺 ⚱️ 🗿 🪬
-"Spice traders" 🌶️ 🧂 🫑 🥘
-"Sacred objects" 🕯️ 📿 🪬 🧿
-"Royal treasures" 👑 💎 🏺 ⚜️
-"Night watchers" 🦉 🌙 👁️ 🔭
-"Breakfast makers" 🥚 🥞 🥓 🍳
-"String players" 🎻 🪕 🎸 🪘
-"Lab equipment" ⚗️ 🧪 🔬 🧫
-"Medical tools" 💉 🩺 🩻 🧬
-"Office supplies" 📏 ✂️ 📎 📌
-"Fresh produce" 🥬 🥕 🫑 🥒
-"Carnival treats" 🍭 🍿 🥨 🧁
-"Winter wear" 🧤 🧣 🧥 🥾
-"Farm animals" 🐄 🐖 🐑 🐓
-"Building tools" 🔨 🪚 🪛 🪜
-"Writing tools" ✒️ 📝 🖊️ 🖌️
-"Climbing gear" 🪢 🧗 🪜 🏔️
-"Tea time treats" 🫖 🍪 🍯 🥮
-"Tropical fruits" 🥭 🥥 🍍 🫛
-"Festival lights" 🪔 🕯️ 🔦 💡
-"Baking essentials" 🥚 🧈 🥛 🧂
-"Garden insects" 🐝 🐛 🦗 🐞
-"Sea predators" 🦈 🦑 🐙 🦐
-"Mountain tools" ⛏️ 🪜 🧭 🪢
-"Desert survivors" 🦂 🦎 🐪 🌵
-"Circus performers" 🤹 🎪 🎭 🦮
-"Battle gear" 🗡️ 🛡️ ⚔️ 🏹
-"Measurement tools" 📏 ⚖️ 🌡️ ⏱️
-"Sushi ingredients" 🍚 🐟 🥢 🫘
-"Camping gear" 🏕️ 🔦 🪃 🗺️
-"Ice cream shop" 🍦 🍨 🧁 🥤
-"Pizza toppings" 🍄 🫑 🧀 🍅
-"Forest fruits" 🫐 🍇 🍓 🍒
-"Pond dwellers" 🐸 🦆 🐢 🦢
-"Cave creatures" 🦇 🕷️ 🦎 🐜
-"Spicy things" 🌶️ 🫑 🥘 🍛
-"Ocean plants" 🌊 🌿 🍄 🪸
-"Playground equipment" 🎠 🎢 🎪 🎡
-"Bath items" 🛁 🧴 🧼 🧽
-"Outdoor sports" 🎣 ⛳ 🏹 🏄
-"Construction site" 🏗️ 🚧 🪜 🏭
-"Forest sounds" 🦉 🦊 🐺 🦜
-"Kitchen appliances" 🔪 🫖 🍶 🥄
-"Sacred space" ⛩️ 🕌 🕍 ⛪
-"Sky watchers" 🔭 🛸 🛩️ 🪽
-"Desert landmarks" 🏰 🗿 🕌 ️
-"Winter sports" ️ 🏂 🎿 🛷
-"Night sky" 🌙 ⭐ 🌠 ☄️
-"Card games" 🃏 🎴 🀄 🎲
-"Paint tools" 🖌️ 🎨 🖼️ 🎭
-"Garden flowers" 🌸 🌹 🌺 🌻
-"Castle features" 🏰 ⚔️ 👑 🛡️
-"Beach essentials" 🏖️ 🧴 🕶️ ⛱️
-"Breakfast drinks" ☕ 🧃 🥛 🧋
-"Forest shelters" 🏕️ 🌳 🪵 🏚️
-"Music makers" 🥁 🎺 🎻 🪘
-"Royal court" 👑 👸 🤴 🗡️
-
-LEVEL 2 EXAMPLES:
-LEVEL 2 EXAMPLES:
-"Morning wakers" 🐓 ☀️ ⏰ ☕
-"Sound shapers" 🎻 🔔 📢 🗣️
-"Shadow makers" 🌳 🏰 ⛅ 🌂
-"Path finders" 🧭 🦮 🌟 🗺️
-"Secret keepers" 🔐 📔 🤫 🎭
-"Water workers" 🚣 🎣 🧜 🌊
-"Sky dancers" 🪁 🦅 🎪 ✈️
-"Night watchers" 🦉 🌙 👁️ 🔭
-"Stone shapers" ⚒️ 🗿 🏺 💎
-"Wind riders" 🪽 🎐 🪁 🌪️
-"Fortune seekers" 🎲 🔮 🎯 🎰
-"Earth movers" 🦬 🌋 🚜 🏗️
-"Sleep bringers" 🌙 🎵 🫖 📖
-"Heat makers" 🔥 🌡️ 💡 🧯
-"Message senders" 🕊️ 📬 📡 🔔
-"Circle drawers" 🎪 🎡 ⭕ 🔄
-"Wave makers" 🌊 🎵 🎭 👋
-"Bridge builders" 🌉 🤝 🔧 💕
-"Door openers" 🗝️ 👋 💳 🔑
-"Air movers" 💨 🌪️ 🪽 🎐
-"Light bringers" 🔦 🕯️ ⚡ 🌅
-"Joy spreaders" 🎪 🎨 🎵 🎈
-"Ground breakers" ⛏️ 🌱 🚜 🦫
-"Storm makers" 🌩️ 🌪️ 🌧️ ⛈️
-"Peace keepers" 🕊️ 🛡️ 🤝 ⚖️
-"Mind readers" 🔮 👁️ 🎭 📖
-"Space takers" 🏰 🎪 🐘 🌳
-"Wall builders" 🧱 🕸️ 🏰 🐜
-"Edge walkers" 🏴‍☠️ 🎪 🧗 🕵️
-"Cloud shifters" 🌪️ ✈️ 🎈 🪽
-"Time watchers" ⌛ 🦉 🌙 🕰️
-"Dream makers" 🛏️ 📚 🎭 🌙
-"Game changers" 🎲 ⚡ 🎭 🃏
-"Shell dwellers" 🐌 🐢 🦀 🐚
-"Fruit lovers" 🐝 🦇 🐘 🐒
-"Mountain tamers" 🧗 🦙 ⛷️ 🏔️
-"Current riders" 🏄 🚣 🌊 🍃
-"Fire tamers" 👨‍🚒 🧯 🚒 🧙‍♀️
-"Snow shapers" ⛄ 🎿 🏂 🌨️
-"Web weavers" 🕷️ 👩‍💻 📱 🕸️
-
-LEVEL 3 EXAMPLES:
-"Boundary keepers" 🚪 🗝️ 🛡️ 👁️
-"Dream weavers" 🕸️ 🎭 🌌 🎪
-"Truth seekers" 🔍 ⚖️ 📜 🔮
-"Story guardians" 📚 🦉 🏛️ 🪔
-"Fate changers" 🎲 ⚔️ 🎭 ⚡
-"Sacred vessels" 🏺 👑 🔮 ⚱️
-"Life cycles" 🥚 🐛 🦋 🌱
-"Power symbols" ⚡ 👑 🗡️ 🔥
-"Fortune's faces" 🎭 🎲 🌙 🎯
-"Time keepers" ⌛ 🕰️ 🌓 🗿
-"Wisdom bearers" 🦉 📚 🕯️ 🌳
-"Soul guides" 🕯️ 🧭 🦋 ⭐
-"Memory holders" 📱 💍 🖼️ 📓
-"Victory markers" 🏆 👑 🌿 🎯
-"Ancient voices" 🏺 📯 🪘 🎭
-"Oracle tools" 🎴 🔮 🎲 🗿
-"Sacred guardians" 🦁 🔱 🗡️ 🛡️
-"Portal watchers" 🚪 🗝️ 🔮 👁️
-"Balance keepers" ⚖️ 🌓 🕊️ ☯️
-"Storm bringers" 🌩️ 🐉 🌪️ 👑
-"Spirit vessels" 🏺 📿 🕯️ 💀
-"Justice symbols" ⚖️ 👁️ ⚔️ 📜
-"Destiny weavers" 🕸️ ⭐ 🎲 🔮
-"Royal guards" 🦁 👑 🗡️ 🛡️
-"Magic sources" 🔮 🌙 ⚡ 🪄
-"Battle omens" 🦅 ⚔️ 🔥 🎭
-"Peace symbols" 🕊️ 🕯️ 🌿 🤝
-"Forest spirits" 🦊 🍄 🌳 🦉
-"Ocean mysteries" 🌊 🐋 🧜 🌙
-"Divine messengers" 👼 🕊️ ⚡ 🌟
-"Fire keepers" 🔥 🕯️ 🧙‍♀️ 🏛️
-"Moon children" 🐺 🦉 🌙 🧙‍♀️
-"Treasure guards" 🐉 💎 🗝️ 👁️
-"Path makers" 🌟 🧭 🗺️ 🦮
-"Fortune's tools" 🎲 🎴 🔮 🎯
-"Story weavers" 📚 🎭 🕸️ 🎨
-"Temple keepers" ⛩️ 🕯️ 📿 👼
-"Reality shapers" 🎭 🔮 🎨 ⚡
-"Wind speakers" 🌪️ 🎐 🍃 🦅
-"Earth readers" 🌱 🦉 🔮 🗿
-
-LEVEL 4 EXAMPLES:
-"Line makers" 🕷️ ✏️ ⛵ ✈️
-   Each creates paths: spider webs, pencil marks, boat wakes, contrails
-
-"Hidden builders" 🐜 🦠 🌱 🫀
-   Each constructs invisibly: ant colonies, microbe communities, root systems, heart tissue
-
-"Pattern breakers" ✂️ 🌩️ 💔 🦋
-   Each disrupts existing forms: cutting, lightning strikes, heartbreak, metamorphosis
-
-"Space makers" 📚 🪗 🎪 🌱
-   Each creates room where there wasn't: books open worlds, accordion expands, tent makes shelter, seed splits earth
-
-"Signal senders" 🌺 📡 🔔 🦜
-   Each broadcasts messages: flower attracts pollinators, antenna transmits data, bell announces, bird calls
-
-"World shapers" 🌋 🦫 👩‍🌾 🎨
-   Each transforms their environment: volcanoes form land, beavers build dams, farmers cultivate, artists create
-
-"Truth tellers" 🔬 👁️ ⚖️ 🌡️
-   Each reveals reality: microscope shows tiny world, eye witnesses, scales measure truth, thermometer tells temperature
-
-"Gap bridgers" 🌈 📞 🤝 🔑
-   Each connects separated things: rainbow links sky/earth, phone connects people, handshake joins strangers, key links locked/unlocked
-
-"Memory keepers" 📸 💍 🪦 🧬
-   Each preserves what was: photos capture moments, rings symbolize promises, graves remember lives, DNA carries history
-
-"Door makers" 🔑 🤝 📖 🎵
-   Each opens new ways: key unlocks paths, handshake opens relationships, book opens minds, music opens hearts
-
-"Circle drawers" 🌙 ⏰ 🎡 🌊
-   Each creates cycles: moon phases, clock hands, Ferris wheel turns, wave patterns
-
-"Pattern finders" 🔍 🧩 🔮 🧬
-   Each reveals hidden structures: magnification, puzzle solving, divination, genetic code
-
-"Time capturers" ⏸️ 📸 🥶 🫙
-   Each freezes moments: pause button, camera, freezing, preservation
-
-"Secret writers" 🐾 🌊 ⚡ 💉
-   Each leaves meaningful marks: footprints tell stories, water shapes land, lightning scars, medical records
-
-"Balance keepers" 🕷️ 🎭 ⚖️ 🎪
-   Each maintains tension: web structure, drama conflict, justice, tightrope
-
-"Patient catchers" 🕸️ 🎣 🪤 🎯
-  Each waits for its target: spider's web, fishing line, trap, target practice
-
-"Boundary crossers" 🚀 🔑 🦅 🧗
-  Each moves between realms: space/earth, locked/unlocked, air/ground, up/down
-
-"Story holders" 🪸 🎨 🧬 💍
-  Each contains narratives: coral records ocean changes, art holds meanings, DNA holds ancestry, rings hold promises
-
-"Rule breakers" 🌋 🦠 🎭 🃏
-  Each defies expectations: volcanoes remake land, microbes evolve, actors transform, joker changes game
-
-"Night workers" 🦉 🌙 🦊 🌺
-  Each operates in darkness: owl hunts, moon pulls tides, fox prowls, night-blooming flowers
-
-"Change markers" 📅 🍂 🌡️ 🎭
-  Each signals transformation: calendar shows time, falling leaves show seasons, thermometer shows shifts, mask shows roles
-
-"Space benders" 📚 🔭 🔍 🎪
-  Each alters perception of space: books transport minds, telescope brings far close, microscope makes small big, circus defies physics
-
-"Hidden guardians" 🔋 🧬 🌳 🛡️
-  Each protects invisibly: battery stores power, DNA preserves life, roots stabilize earth, shield blocks danger
-
-"Echo makers" 🔔 🌊 🏛️ 🎵
-  Each creates lasting resonance: bell sound, ripples, architecture, music
-
-"Power holders" ⚡ 💭 🗝️ 📝
-  Each contains potential: electricity, ideas, access, written words
-
-"Threshold guides" 🌅 🚪 🧭 🎓
-  Each marks transitions: dawn to day, in to out, lost to found, student to graduate
-
-"Code writers" 🧬 🐝 🎵 👣
-  Each creates meaningful patterns: DNA, honeycomb, music notation, dance steps
-
-"Light catchers" 📷 🌙 💎 👁️
-  Each captures and transforms light: camera, moon reflection, crystal refraction, vision
-
-"Bridge builders" 🌈 🤝 📡 🗣️
-  Each connects across distance: rainbow spans sky, handshake joins people, signal connects devices, voice carries meaning
-
-"Pattern breakers" 🌩️ 🎲 ✂️ 🦋
-  Each disrupts existing order: lightning splits sky, dice change fate, scissors cut patterns, metamorphosis transforms
-
-"Truth finders" 🔍 ⚖️ 🧪 🎭
-  Each reveals reality differently: investigation, justice, experiment, dramatic truth
-
-"Memory makers" 📸 💫 🕯️ 🎭
-  Each preserves moments: photos capture time, stars show past light, candle ceremonies, theatrical recreation
-
-"World weavers" 🕷️ 🎨 🗺️ 📚
-  Each creates universes: spider's web, artist's canvas, cartographer's map, author's story
-
-"Portal keepers" 🚪 📱 🔮 🎭
-  Each opens to other realms: doorway, screen, crystal ball, performance
-
------- USE THE ABOVE EXAMPLES AS INSPIRATION, BUT CREATE YOUR OWN UNIQUE GROUPS. ------
-
-FOR MORE INSIGHT, CONSIDER THE FOLLOWING WORD CATEGORIES, and apply them to emojis:
-Synonyms: Words with similar meanings (e.g., happy, joyful, cheerful, merry)
-Antonyms: Words with opposite meanings (e.g., hot, cold, black, white)
-Categories: Words belonging to the same category (e.g., apple, banana, orange, grape)
-Homophones: Words that sound alike but have different meanings (e.g., there, their, they're)
-Puns/Wordplay: Words connected by a play on words (e.g., bandage, patch, fix, repair)
-Shared Letters/Prefixes/Suffixes: Words sharing common letters or parts of words
-Themes: Words related to a specific theme (e.g., Shakespeare, Hamlet, Macbeth, Othello)
-Functions/Uses: Words sharing a similar function or purpose
-
-CREATIVITY IS PARAMOUNT.
-
-ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
-
-  const prompt = `Generate a puzzle for ${dateStr} for a word association game using emojis. Create themed puzzles ONLY if this is the exact date of a major holiday.
-
-Respond with a JSON object in this format:
 {
   "solutions": [
     {
       "emojis": ["emoji1", "emoji2", "emoji3", "emoji4"],
-      "name": "group name",
+      "name": "Group 1", 
       "difficulty": 1,
-      "explanation": "Why this group works"
+      "explanation": "Explanation for group 1."
+    },
+    {
+      "emojis": ["emoji5", "emoji6", "emoji7", "emoji8"],
+      "name": "Group 2",
+      "difficulty": 2,
+      "explanation": "Explanation for group 2."
+    },
+    {
+      "emojis": ["emoji9", "emoji10", "emoji11", "emoji12"],
+      "name": "Group 3",
+      "difficulty": 3,
+      "explanation": "Explanation for group 3."
+    },
+    {
+      "emojis": ["emoji13", "emoji14", "emoji15", "emoji16"],
+      "name": "Group 4",
+      "difficulty": 4,
+      "explanation": "Explanation for group 4."
     }
   ]
-}   
+}
 
-YOU MUST USE THE ABOVE FORMAT.
+• Respond only with the JSON object containing all four sets, with no additional text outside the JSON object.
 
-CREATIVITY IS THE MOST IMPORTANT PART OF THIS.
-CREATE SOMETHING UNIQUE AND INSIGHTFUL.
-CREATIVITY IS PARAMOUNT.
-CREATE SOMETHING THAT YOU WOULD WANT TO SOLVE.
-CREATE SOMETHING THAT YOU THINK IS FUN AND CREATIVE.
+Conceptual Guidelines:
+• Each set must have a distinct, meaningful connection—cultural, conceptual, symbolic, linguistic, or functional—but not an obvious or cliché category.
+• Choose connections that feel naturally satisfying and elegant once revealed.
+• Consider diverse approaches:
 
-ONLY RESPOND WITH VALID JSON.
+Employ subtle symbolic or metaphoric resonances that bridge natural phenomena, technology, art, or science.
+Use linguistic twists or homophones, either within a single language or bridging familiar words in multiple languages.
+Highlight lesser-known scientific or cultural concepts that can be inferred through patterns or recognizable traits (e.g., behaviors of certain animals, properties of materials, conceptual groupings from widely known yet not overly common knowledge areas).
+Integrate thematic patterns that reward curiosity and lateral thinking, prompting players to connect different domains meaningfully rather than rely on obscure trivia.
 
-The solutions array must contain exactly 4 groups with difficulties 1, 2, 3, and 4.
-Each emoji must appear exactly once across all groups.
+Aim for each successive set to be more challenging:
+• Difficulty 1 (Moderately Challenging): A subtle but discernible link that most solvers can find with a bit of thought, rather than instantly.
+• Difficulty 2 (More Challenging): A concept that is still accessible but demands more pattern recognition or a small leap of insight.
+• Difficulty 3 (Even More Challenging): A thematic or symbolic connection that requires stepping back to see a bigger picture or recognizing an overarching idea.
+• Difficulty 4 (Similar to Difficulty 3): Similar to difficulty 3.
 
-ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
+Quality & Creativity:
+• Avoid trivial sets (e.g., all fruits, the four cardinal directions).
+• Avoid sets that rely on rarefied or arcane knowledge that can't be reasonably deduced. Instead, aim for connections that are "hidden in plain sight," revealed through thoughtful observation.
+• The explanation for each set should be concise, illuminating the exact nature of the link and confirming why these emojis form a coherent group.
+• Encourage variety in emoji choice: mix objects, symbols, animals, cultural icons, technological elements, and natural phenomena.
+• Strive for an overall puzzle that feels like a journey, with each successive set drawing the solver deeper into creative and conceptual thinking.
+
+When deciding, sometimes go with your 3rd or 4th choice to introduce a bit of variety.
+
+Each component of the set should apply to the overall theme of that set, without needing to be in context with the other emojis.
+
+Think really really hard about the theme of each set, by looking at the emojis and thinking about what they have in common.
+
+Final Output:
+• Return only the single JSON object containing all four sets following the structure above.
+• Ensure that the chosen connections and their explanations create a sense of discovery and enjoyment for the solver.
+`;
 
   let responseText: string;
 
   if (provider === 'claude') {
     console.log('Using Claude for puzzle generation');
     const message = await anthropic.messages.create({
-      model: "claude-3-5-latest",
+      model: "claude-3-5-sonnet-latest",
       max_tokens: 1024,
       temperature: 1,
-      system: systemPrompt,
       messages: [
         {
           role: "user",
@@ -371,86 +122,13 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED. IT IS INCREDIBLY BAD.`;
     console.log('Received response from Claude');
   } else {
     console.log('Using OpenAI for puzzle generation');
-    const openaiPrompt = `
-Generate a complex and challenging emoji-based word association puzzle for the given date (${dateStr}). This puzzle is NOT holiday-themed unless the given date aligns with a major holiday. Your output should be a single JSON object with the following structure:
-
-{
-  "solutions": [
-    {
-      "emojis": ["emoji1", "emoji2", "emoji3", "emoji4"],
-      "name": "group name",
-      "difficulty": 1,
-      "explanation": "Why this group works"
-    },
-    {
-      "emojis": ["emoji5", "emoji6", "emoji7", "emoji8"],
-      "name": "group name",
-      "difficulty": 2,
-      "explanation": "Why this group works"
-    },
-    {
-      "emojis": ["emoji9", "emoji10", "emoji11", "emoji12"],
-      "name": "group name",
-      "difficulty": 3,
-      "explanation": "Why this group works"
-    },
-    {
-      "emojis": ["emoji13", "emoji14", "emoji15", "emoji16"],
-      "name": "group name",
-      "difficulty": 4,
-      "explanation": "Why this group works"
-    }
-  ]
-}
-Requirements & Guidelines:
-
-Overall Structure:
-
-Exactly 4 sets of 4 unique emojis (16 total unique emojis, no repeats).
-Each set must have a strong, specific connection that can be clearly explained.
-Difficulty should range from relatively straightforward to quite challenging across the four sets.
-The puzzle should force players to think: some emojis might appear to fit into multiple potential categories, causing misdirection.
-Types of Sets:
-
-Level 1 (Function Set, Difficulty ~1/10)
-Four items that share a very specific everyday function or role.
-Example (not to use): Four items that serve as writing tools.
-The connection should be practical but not glaringly obvious at a glance.
-Level 2 (Property Set, Difficulty ~3/10)
-Four items sharing a particular notable property or trait.
-The trait should be more nuanced than just color or broad category. Consider properties like how they operate under certain conditions, what distinctive resource they utilize, or a unique trait they all demonstrate.
-Level 3 (Abstract/Conceptual Set, Difficulty ~5/10)
-Four items tied together by a more abstract, underlying concept rather than a direct physical property or function.
-The link might involve how they represent certain patterns, systems, or symbolic meanings in different contexts.
-Level 4 (Highly Conceptual/Technical Set, Difficulty ~7/10)
-Four items connected by a complex conceptual framework, possibly spanning multiple domains (nature, technology, culture, science).
-These might be items that all play a role in a sophisticated system (e.g., different stages of a complex process, different components in a theoretical model, or different symbolic representations of a high-level concept).
-This set should be deeply challenging and require significant insight to understand the common thread.
-Quality Checks:
-
-No process chains: we are not describing a step-by-step progression this time, just sets bound by common concepts.
-Connections must be logical, specific, and defensible. Avoid loose, vague themes.
-Avoid trivial categories (like “all four are fruits” or “all four are red”).
-Each chosen emoji should uniquely fit its intended category and not be too obviously placed.
-The explanation should clarify the logic behind each set.
-Novelty & Variation:
-
-Strive for originality and diversity in chosen emojis.
-Consider mixing natural, technological, symbolic, and cultural emojis to keep players guessing.
-Avoid repeating the same logic or type of connection across multiple sets.
-Formatting:
-
-Respond with ONLY the JSON object, nothing else.
-Do not quote or format the JSON output with backticks in the final response.
-Use these refined instructions to produce a challenging (but not too challenging), satisfying, multi-layered puzzle that encourages deeper thinking without relying on process chains.` 
-
     const completion = await openai.chat.completions.create({
       model: "o1-preview",
       temperature: 1,
       messages: [
         {
           role: "user",
-          content: openaiPrompt
+          content: prompt
         }
       ],
     });

@@ -7,11 +7,11 @@ interface GameTileProps {
   gridCol: number;
   isSelected: boolean;
   isAnimating: boolean;
-  isCompleted?: boolean;
+  isFading?: boolean;
   tileSize: number;
   gap: number;
-  isFading?: boolean;
   onClick: () => void;
+  onAnimationComplete?: () => void;
 }
 
 export function GameTile({
@@ -20,34 +20,47 @@ export function GameTile({
   gridCol,
   isSelected,
   isAnimating,
-  isCompleted,
+  isFading,
   tileSize,
   gap,
-  isFading,
-  onClick
+  onClick,
+  onAnimationComplete
 }: GameTileProps) {
+  if (!tileSize) return null;
+
   return (
-    <motion.button
+    <motion.div
       layout
-      onClick={onClick}
-      initial={false}
-      animate={{
-        opacity: isFading ? 0 : 1,
+      initial={{
+        x: gridCol * (tileSize + gap),
+        y: gridRow * (tileSize + gap),
+        opacity: 1
       }}
-      style={{
-        position: 'absolute',
-        top: gridRow * (tileSize + gap),
-        left: gridCol * (tileSize + gap),
-        width: tileSize,
-        height: tileSize,
+      animate={{
+        x: gridCol * (tileSize + gap),
+        y: gridRow * (tileSize + gap),
+        opacity: isFading ? 0 : 1
+      }}
+      onAnimationComplete={onAnimationComplete}
+      transition={{
+        type: "spring",
+        stiffness: 200,
+        damping: 20,
+        mass: 0.5
       }}
       className={cn(
-        "rounded-lg text-2xl flex items-center justify-center transition-colors",
-        isSelected ? "bg-gray-200" : "bg-white hover:bg-gray-100",
-        "border border-gray-200 text-4xl"
+        "absolute top-0 left-0 flex items-center justify-center rounded-lg cursor-pointer select-none bg-white border border-gray-200",
+        isSelected && "border-blue-500 border-2"
       )}
+      style={{
+        width: tileSize,
+        height: tileSize,
+        zIndex: isSelected ? 10 : 1,
+        transform: `translate3d(${gridCol * (tileSize + gap)}px, ${gridRow * (tileSize + gap)}px, 0)`
+      }}
+      onClick={onClick}
     >
-      {emoji}
-    </motion.button>
+      <span className="text-4xl select-none">{emoji}</span>
+    </motion.div>
   );
 } 

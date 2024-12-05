@@ -17,7 +17,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Deterministic shuffle using a seed string
-function seededShuffle<T>(array: T[], seed: string): T[] {
+export function seededShuffle<T>(array: T[], seed: string): T[] {
+  console.log(`Shuffling array of length ${array.length} with seed ${seed}`);
   const numbers = Array.from(seed).map(char => char.charCodeAt(0));
   let seedNumber = numbers.reduce((acc, num) => acc + num, 0);
   
@@ -27,5 +28,6 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
     const j = seedNumber % (i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+  console.log('Shuffle complete');
   return shuffled;
 }

@@ -57,12 +57,12 @@ export function calculateSolutionPositions(
   
   // Calculate center offset to position tiles with proper spacing
   const totalWidth = 4; // 4 tiles wide
-  const startCol = (totalWidth - matchedTiles.length) / 2;
+  const startCol = Math.floor((totalWidth - matchedTiles.length) / 2);
   
   // Assign matched tiles to their solution row with centered spacing
   const matchedPositions = matchedTiles.map((tile, index) => ({
     ...tile,
-    gridRow: targetRow,
+    gridRow: Math.max(0, targetRow), // Ensure row is never negative
     gridCol: startCol + index,
     isAnimating: true
   }));
@@ -75,7 +75,7 @@ export function calculateSolutionPositions(
   // Assign remaining tiles to a compact grid starting after the target row
   const remainingPositions = remainingTiles.map((tile, index) => ({
     ...tile,
-    gridRow: Math.floor(index / 4) + targetRow + 1,
+    gridRow: Math.max(0, Math.floor(index / 4) + targetRow + 1), // Ensure row is never negative
     gridCol: index % 4,
     isAnimating: true
   }));

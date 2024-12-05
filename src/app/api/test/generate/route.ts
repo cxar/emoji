@@ -1,43 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generatePuzzleWithAI } from '@/lib/puzzleGeneration';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Get date and provider from query parameters
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const dateStr = searchParams.get('date');
-    const provider = (searchParams.get('provider') || 'claude') as 'claude' | 'openai';
-    const date = dateStr ? new Date(dateStr) : new Date();
+    const provider = searchParams.get('provider') as 'claude' | 'openai' | null;
 
-    // Validate date
+    if (!dateStr) {
+      return NextResponse.json({
+        success: false,
+        error: 'Date parameter is required'
+      }, { status: 400 });
+    }
+
+    const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       return NextResponse.json({
         success: false,
-        error: 'Invalid date format. Use YYYY-MM-DD'
+        error: 'Invalid date format'
       }, { status: 400 });
     }
 
-    // Validate provider
-    if (!['claude', 'openai'].includes(provider)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid provider. Use "claude" or "openai"'
-      }, { status: 400 });
-    }
-
-    const puzzle = await generatePuzzleWithAI(date, provider);
+    const puzzle = await generatePuzzleWithAI(date, provider || 'claude');
     return NextResponse.json({
       success: true,
       puzzle,
-      date: date.toISOString().split('T')[0],
-      provider,
-      generated: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Test puzzle generation failed:', error);
+    console.error('Failed to generate test puzzle:', error);
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Failed to generate puzzle'
     }, { status: 500 });
   }
 } 

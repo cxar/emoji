@@ -1,4 +1,4 @@
-import { ClientBoard } from '@/components/game';
+import { ClientBoard, ClientDailyMessage } from '@/components/game';
 
 export default function Home() {
   return (
@@ -8,9 +8,7 @@ export default function Home() {
         <p className="text-sm sm:text-base text-gray-600 mb-2 sm:mb-4">
           Find groups of four emojis that share a common theme.
         </p>
-        <p className="text-xs sm:text-sm text-gray-500">
-          New puzzle every day
-        </p>
+        <ClientDailyMessage />
       </header>
 
       <div className="w-full max-w-md mx-auto">

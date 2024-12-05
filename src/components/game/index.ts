@@ -1,1 +1,2 @@
-export { ClientBoard } from './ClientBoard'; 
+export * from './ClientBoard';
+export * from './ClientDailyMessage'; 

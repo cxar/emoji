@@ -1,44 +1,55 @@
 import { Solution } from "@/types";
 import { motion } from "framer-motion";
-import { DIFFICULTY_COLORS } from "./Board";
+import { DIFFICULTY_COLORS } from "@/types/game";
 import { cn } from "@/lib/utils";
 
 interface ExpandingSolutionProps {
   solution: Solution;
   startRow: number;
   boardHeight: number;
+  onAnimationComplete?: () => void;
 }
 
-export function ExpandingSolution({ solution, startRow, boardHeight }: ExpandingSolutionProps) {
+export function ExpandingSolution({ 
+  solution, 
+  startRow, 
+  boardHeight,
+  onAnimationComplete 
+}: ExpandingSolutionProps) {
   const tileSize = (boardHeight - 24) / 4;
   const gap = 8;
   const rowHeight = tileSize + gap;
 
   return (
     <motion.div
-      initial={{ 
-        height: rowHeight - gap,
-        y: startRow * rowHeight,
+      initial={onAnimationComplete ? { 
         WebkitMaskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
         maskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)'
-      }}
-      animate={{
-        WebkitMaskImage: [
-          'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
-          'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
-        ],
-        maskImage: [
-          'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
-          'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
-        ]
-      }}
+      } : undefined}
+      animate={onAnimationComplete ? {
+        WebkitMaskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)',
+        maskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
+      } : undefined}
+      onAnimationComplete={onAnimationComplete}
       style={{
         width: "100%",
         borderRadius: "0.5rem",
         position: "absolute",
         left: 0,
+        height: rowHeight - gap,
+        transform: `translateY(${startRow * rowHeight}px)`,
+        ...(onAnimationComplete ? {
+          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
+          maskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)'
+        } : {
+          WebkitMaskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)',
+          maskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
+        })
       }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ 
+        duration: 0.5,
+        ease: [0.22, 1, 0.36, 1]
+      }}
       className={cn(
         "z-10 flex flex-col items-center justify-center",
         DIFFICULTY_COLORS[solution.difficulty].solved

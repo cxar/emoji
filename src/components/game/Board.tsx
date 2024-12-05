@@ -3,46 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DailyPuzzle, Emoji, Solution } from '@/types';
-import { cn, getPuzzleNumber } from '@/lib/utils';
+import { TilePosition } from '@/types/game';
 import { GameTile } from './GameTile';
 import { ExpandingSolution } from './ExpandingSolution';
-import { TilePosition, calculateReflow, calculateSolutionPositions } from './boardLogic';
 import { GameOverModal } from './GameOverModal';
-
-// Color scheme similar to NYT Connections
-export const DIFFICULTY_COLORS = {
-  1: {
-    base: 'bg-yellow-100',
-    solved: 'bg-yellow-200',
-    emoji: '🟨'
-  },
-  2: {
-    base: 'bg-green-100',
-    solved: 'bg-green-200',
-    emoji: '🟩'
-  },
-  3: {
-    base: 'bg-blue-100',
-    solved: 'bg-blue-200',
-    emoji: '🟦'
-  },
-  4: {
-    base: 'bg-purple-100',
-    solved: 'bg-purple-200',
-    emoji: '🟪'
-  }
-} as const;
-
-const STORAGE_KEY = 'emoji-connections-state';
-const MAX_ATTEMPTS = 4;
-
-interface BoardGameState {
-  selected: Emoji[];
-  lives: number;
-  gameOver: boolean;
-  guesses: Emoji[][];
-  incorrectGuesses: Set<string>;
-}
+import { GameControls } from './GameControls';
+import { GameStatus } from './GameStatus';
+import { MessageOverlay } from './MessageOverlay';
+import { loadSavedState, saveGameState } from '@/lib/game/storage';
+import { generateShareText, shareResults } from '@/lib/game/share';
+import { animateToSolution, revealUnsolvedGroups, calculateBoardPositions } from '@/lib/game/animations';
+import { BoardGameState, MAX_ATTEMPTS, ANIMATION_TIMINGS, BOARD_CONFIG } from '@/types/game';
 
 const initialGameState: BoardGameState = {
   selected: [],
@@ -52,84 +23,15 @@ const initialGameState: BoardGameState = {
   incorrectGuesses: new Set()
 };
 
-interface SavedGameState {
-  puzzleId: string;
-  state: Omit<BoardGameState, 'incorrectGuesses'> & {
-    incorrectGuesses: string[];
-  };
-  solvedGroups: Solution[];
-  tilePositions: TilePosition[];
-}
-
-function generateShareText(puzzle: DailyPuzzle, solvedGroups: Solution[], maxAttempts: number, attempts: number, guesses: Emoji[][]): string {
-  const puzzleNumber = getPuzzleNumber(puzzle.id);
-  
-  // Format guesses in reading order
-  const guessesStr = (guesses || []).map(guess => {
-    // Sort emojis by their position in the original grid
-    const sortedGuess = [...guess].sort((a, b) => 
-      puzzle.emojis.indexOf(a) - puzzle.emojis.indexOf(b)
-    );
-    
-    // Get colors for each emoji based on its group's difficulty
-    const colors = sortedGuess.map(emoji => {
-      // Find which group this emoji belongs to
-      const group = puzzle.solutions.find(solution => 
-        solution.emojis.includes(emoji)
-      );
-      return DIFFICULTY_COLORS[group?.difficulty ?? 1].emoji; // Default to yellow if no group found
-    });
-
-    return colors.join('');
-  }).join('\n');
-
-  return `Emoji Connections #${puzzleNumber}
-
-${guessesStr}`;
-}
-
-function loadSavedState(puzzleId: string): SavedGameState | null {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as SavedGameState;
-      if (parsed.puzzleId === puzzleId) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load saved state:', e);
-  }
-  return null;
-}
-
-function saveGameState(
-  puzzleId: string, 
-  state: Omit<BoardGameState, 'incorrectGuesses'> & { incorrectGuesses: Set<string> | string[] }, 
-  solvedGroups: Solution[], 
-  tilePositions: TilePosition[]
-) {
-  try {
-    const saveData: SavedGameState = {
-      puzzleId,
-      state: {
-        ...state,
-        incorrectGuesses: Array.isArray(state.incorrectGuesses) 
-          ? state.incorrectGuesses 
-          : Array.from(state.incorrectGuesses)
-      },
-      solvedGroups,
-      tilePositions
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
-  } catch (e) {
-    console.error('Failed to save game state:', e);
-  }
-}
-
 // Helper to convert emoji array to consistent string key
 function getGuessKey(emojis: Emoji[]): string {
   return [...emojis].sort().join(',');
+}
+
+interface ExpandingSolutionState {
+  group: Solution;
+  startRow: number;
+  onComplete?: () => void;
 }
 
 export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
@@ -139,93 +41,91 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
   const [shareStatus, setShareStatus] = useState<'copy' | 'copied'>('copy');
   const [shakeKey, setShakeKey] = useState(0);
   const [tilePositions, setTilePositions] = useState<TilePosition[]>([]);
-  const [expandingSolution, setExpandingSolution] = useState<{
-    group: Solution;
-    startRow: number;
-  } | null>(null);
+  const [expandingSolution, setExpandingSolution] = useState<ExpandingSolutionState | null>(null);
   const [completedSolutions, setCompletedSolutions] = useState<Set<string>>(new Set());
-  const boardRef = useRef<HTMLDivElement>(null);
-  const isRevealingRef = useRef(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const [showGameOver, setShowGameOver] = useState(false);
   const [solvedGroupsAtGameOver, setSolvedGroupsAtGameOver] = useState<number | null>(null);
-
-  // Load saved state and initialize tile positions
-  const hasInitialized = useRef(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   
+  const boardRef = useRef<HTMLDivElement>(null);
+  const isRevealingRef = useRef(false);
+  const hasInitialized = useRef(false);
+
+  // Load saved state
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
+    console.log('Initializing board with puzzle:', puzzle);
     const savedState = loadSavedState(puzzle.id);
     if (savedState) {
-      // Restore saved state
+      console.log('Loading saved state:', savedState);
       setGameState({
         ...savedState.state,
         incorrectGuesses: new Set(savedState.state.incorrectGuesses)
       });
       setSolvedGroups(savedState.solvedGroups);
       setCompletedSolutions(new Set(savedState.solvedGroups.map(g => g.name)));
-      
-      // Restore saved tile positions
-      if (savedState.tilePositions) {
+
+      // Ensure we have valid tile positions from saved state
+      if (savedState.tilePositions && savedState.tilePositions.length > 0) {
         setTilePositions(savedState.tilePositions);
       } else {
-        // If no saved positions but we have solved groups, recalculate positions
-        let positions: TilePosition[] = puzzle.emojis.map((emoji, index) => ({
+        // Fallback to initial grid if saved positions are invalid
+        const initialTiles = puzzle.emojis.map((emoji, index) => ({
           emoji,
           gridRow: Math.floor(index / 4),
           gridCol: index % 4,
           isSelected: false,
           isAnimating: false
         }));
-
-        // Position solved groups
-        savedState.solvedGroups.forEach((group, groupIndex) => {
-          const availableTiles = positions.filter(tile => 
-            !savedState.solvedGroups
-              .slice(0, groupIndex)
-              .flatMap(g => g.emojis)
-              .includes(tile.emoji)
-          );
-          positions = calculateSolutionPositions(availableTiles, group.emojis, groupIndex);
-        });
-
-        // Reflow remaining tiles
-        const remainingTiles = positions.filter(tile => 
-          !savedState.solvedGroups.flatMap(g => g.emojis).includes(tile.emoji)
-        );
-        if (remainingTiles.length > 0) {
-          const reflowedTiles = calculateReflow(remainingTiles, savedState.solvedGroups.length);
-          positions = positions.map(tile => 
-            remainingTiles.some(t => t.emoji === tile.emoji)
-              ? reflowedTiles.find(t => t.emoji === tile.emoji)!
-              : tile
-          );
-        }
-
-        setTilePositions(positions);
+        setTilePositions(initialTiles);
       }
     } else {
-      // Initialize new game state
-      const positions: TilePosition[] = puzzle.emojis.map((emoji, index) => ({
+      console.log('Creating new game state with emojis:', puzzle.emojis);
+      // Initialize new game with tiles in a grid
+      const initialTiles = puzzle.emojis.map((emoji, index) => ({
         emoji,
         gridRow: Math.floor(index / 4),
         gridCol: index % 4,
         isSelected: false,
         isAnimating: false
       }));
-      setTilePositions(positions);
+      console.log('Setting initial tile positions:', initialTiles);
+      setTilePositions(initialTiles);
     }
   }, [puzzle.id, puzzle.emojis]);
+
+  // Initialize board dimensions
+  const [boardDimensions, setBoardDimensions] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (boardRef.current) {
+        const { width, height } = boardRef.current.getBoundingClientRect();
+        setBoardDimensions({ width, height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  const tileSize = (boardDimensions.width - BOARD_CONFIG.BOARD_PADDING) / BOARD_CONFIG.GRID_SIZE;
+  const gap = BOARD_CONFIG.TILE_GAP;
+
+  console.log('Board dimensions:', boardDimensions, 'Tile size:', tileSize);
+
+  useEffect(() => {
+    console.log('Current tile positions:', tilePositions);
+  }, [tilePositions]);
 
   // Save state on changes
   useEffect(() => {
     if (!hasInitialized.current) return;
-    saveGameState(puzzle.id, {
-      ...gameState,
-      incorrectGuesses: Array.from(gameState.incorrectGuesses)
-    } as SavedGameState['state'], solvedGroups, tilePositions);
+    saveGameState(puzzle.id, gameState, solvedGroups, tilePositions);
   }, [puzzle.id, gameState, solvedGroups, tilePositions]);
 
   // Update selection state
@@ -244,99 +144,17 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       solvedGroups,
       MAX_ATTEMPTS,
       gameState.lives,
-      gameState.guesses || []
+      gameState.guesses
     );
 
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setShareStatus('copied');
-      setTimeout(() => setShareStatus('copy'), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    const result = await shareResults(shareText);
+    setShareStatus(result === 'copied' ? 'copied' : 'copy');
+    if (result === 'copied') {
+      setTimeout(() => setShareStatus('copy'), ANIMATION_TIMINGS.COPIED_FEEDBACK);
     }
   };
 
-  const animateToSolution = async (matchedEmojis: Emoji[], solutionIndex: number) => {
-    if (!boardRef.current) return;
-
-    // Find the actual solution being matched
-    const matchingSolution = puzzle.solutions.find(solution =>
-      matchedEmojis.every(e => solution.emojis.includes(e))
-    )!;
-
-    // Calculate target row based on solved groups
-    const targetRow = solvedGroups.length;
-
-    // Move tiles to form solution
-    setTilePositions(prev => 
-      calculateSolutionPositions(prev, matchedEmojis, targetRow)
-    );
-
-    // Wait for tiles to reach their positions
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Show the expanding solution immediately after tiles move
-    setExpandingSolution({
-      group: matchingSolution,
-      startRow: targetRow
-    });
-
-    // Add to solved groups and reflow remaining tiles
-    setSolvedGroups(prev => [...prev, matchingSolution]);
-    setTilePositions(prev => {
-      // Remove matched tiles
-      const remainingTiles = prev.filter(tile => !matchedEmojis.includes(tile.emoji));
-      // Calculate new positions for remaining tiles, starting after the new solution
-      return calculateReflow(remainingTiles, targetRow + 1);
-    });
-
-    // Wait for expansion animation to complete
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  };
-
-  const revealUnsolvedGroups = async () => {
-    // Get unsolved groups in order of difficulty
-    const unsolvedGroups = puzzle.solutions
-      .filter(solution => !solvedGroups.some(solved => solved.name === solution.name))
-      .sort((a, b) => a.difficulty - b.difficulty);
-
-    // Reveal each group in sequence
-    for (const solution of unsolvedGroups) {
-      // Move tiles to solution positions
-      setTilePositions(prev => {
-        const remainingTiles = prev.filter(tile => 
-          !solvedGroups.flatMap(s => s.emojis).includes(tile.emoji)
-        );
-        return calculateSolutionPositions(remainingTiles, solution.emojis, solvedGroups.length, true);
-      });
-
-      // Wait for tiles to move
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Show expanding solution
-      setExpandingSolution({
-        group: solution,
-        startRow: solvedGroups.length
-      });
-
-      // Wait for expansion animation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Add to solved groups
-      setSolvedGroups(prev => [...prev, solution]);
-      
-      // Clear expanding solution and wait before next group
-      setExpandingSolution(null);
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
-  };
-
-  const boardHeight = boardRef.current?.getBoundingClientRect().height ?? 0;
-  const boardWidth = boardRef.current?.getBoundingClientRect().width ?? 0;
-  const tileSize = (boardWidth - 24) / 4;
-  const gap = 8;
-
-  const handleTileClick = async (emoji: Emoji) => {
+  const handleTileClick = (emoji: Emoji) => {
     if (gameState.gameOver || isRevealing || solvedGroups.some(group => group.emojis.includes(emoji))) {
       return;
     }
@@ -359,7 +177,23 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
     }));
   };
 
-  // Handle submit button click
+  const handleTilePositionsUpdate = (positions: TilePosition[]) => {
+    setIsAnimating(true);
+    setTilePositions(positions);
+  };
+
+  const handleSolutionExpand = (solution: Solution, row: number, onComplete?: () => void) => {
+    setExpandingSolution({
+      group: solution,
+      startRow: row,
+      onComplete: () => {
+        onComplete?.();
+        setExpandingSolution(null);
+        setIsAnimating(false);
+      }
+    });
+  };
+
   const handleSubmit = async () => {
     if (gameState.selected.length !== 4) return;
     
@@ -368,7 +202,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
     
     if (gameState.incorrectGuesses.has(guessKey)) {
       setShowMessage("Already Guessed");
-      setTimeout(() => setShowMessage(null), 1500);
+      setTimeout(() => setShowMessage(null), ANIMATION_TIMINGS.MESSAGE_DISPLAY);
       setGameState(prev => ({ ...prev, selected: [] }));
       return;
     }
@@ -384,14 +218,25 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
         return;
       }
 
-      await animateToSolution(newSelected, completedSolutions.size);
-      setCompletedSolutions(prev => new Set([...prev, matchingSolution.name]));
-      setGameState(prev => ({
-        ...prev,
-        selected: [],
-        guesses: [...prev.guesses, newSelected],
-        gameOver: completedSolutions.size + 1 === puzzle.solutions.length
-      }));
+      // Deselect tiles before animation
+      setGameState(prev => ({ ...prev, selected: [] }));
+
+      await animateToSolution(
+        tilePositions,
+        newSelected,
+        [...solvedGroups, matchingSolution],
+        handleTilePositionsUpdate,
+        handleSolutionExpand,
+        (solution) => {
+          setSolvedGroups(prev => [...prev, matchingSolution]);
+          setCompletedSolutions(prev => new Set([...prev, matchingSolution.name]));
+          setGameState(prev => ({
+            ...prev,
+            guesses: [...prev.guesses, newSelected],
+            gameOver: completedSolutions.size + 1 === puzzle.solutions.length
+          }));
+        }
+      );
     } else {
       const isOneAway = puzzle.solutions.some(solution => {
         const matches = newSelected.filter(emoji => 
@@ -402,123 +247,178 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
 
       if (isOneAway) {
         setShowMessage("One away!");
-        setTimeout(() => setShowMessage(null), 1500);
+        setTimeout(() => setShowMessage(null), ANIMATION_TIMINGS.MESSAGE_DISPLAY);
       }
 
-      setShakeKey(prev => prev + 1);
       const newLives = gameState.lives - 1;
+      
+      // Start shake animation
+      setShakeKey(prev => prev + 1);
+      
+      // Set game state
       setGameState(prev => ({
         ...prev,
         selected: [],
         guesses: [...prev.guesses, newSelected],
         incorrectGuesses: new Set([...prev.incorrectGuesses, guessKey]),
-        lives: newLives
+        lives: newLives,
       }));
+
+      // If this was the last life, wait for shake animation to complete before setting isRevealing
+      if (newLives === 0) {
+        await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SHAKE));
+        setIsRevealing(true);
+      }
     }
   };
 
-  // Check if game is over
+  const handleShuffle = () => {
+    if (isAnimating || isRevealing) return;
+
+    setIsAnimating(true);
+
+    // Get unsolved tiles
+    const unsolvedTiles = tilePositions.filter(
+      tile => !solvedGroups.some(group => group.emojis.includes(tile.emoji))
+    );
+
+    // Shuffle only unsolved tiles while preserving tile properties
+    const shuffled = unsolvedTiles
+      .map(tile => ({ tile, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(({ tile }, index) => ({
+        ...tile,
+        gridRow: Math.floor(index / 4) + solvedGroups.length,
+        gridCol: index % 4,
+        isAnimating: true
+      }));
+
+    // Get solved tiles with their original properties
+    const solvedTiles = tilePositions.filter(
+      tile => solvedGroups.some(group => group.emojis.includes(tile.emoji))
+    ).map(tile => ({
+      ...tile,
+      isAnimating: false
+    }));
+
+    // Combine and set new positions
+    const newPositions = [...solvedTiles, ...shuffled];
+    setTilePositions(newPositions);
+
+    // Reset animation state after animation completes
+    setTimeout(() => {
+      setTilePositions(prev => prev.map(tile => ({ ...tile, isAnimating: false })));
+      setIsAnimating(false);
+    }, ANIMATION_TIMINGS.TILE_MOVEMENT);
+  };
+
+  // Update positions after solution is complete
   useEffect(() => {
-    if (gameState.lives === 0 && !gameState.gameOver && !isRevealingRef.current) {
+    if (expandingSolution) {
+      const newPositions = calculateBoardPositions(tilePositions, solvedGroups);
+      setTilePositions(newPositions);
+    }
+  }, [expandingSolution, solvedGroups]);
+
+  // Update tile positions when a solution is found
+  const handleSolutionFound = (solution: Solution) => {
+    const solutionRow = solvedGroups.length;
+    
+    // Update solved tiles to their final positions
+    const updatedPositions = tilePositions.map(tile => {
+      if (solution.emojis.includes(tile.emoji)) {
+        return {
+          ...tile,
+          gridRow: solutionRow,
+          isAnimating: false,
+          isSelected: false
+        };
+      }
+      return tile;
+    });
+
+    setTilePositions(updatedPositions);
+  };
+
+  // Add effect to handle solution completion
+  useEffect(() => {
+    if (expandingSolution) {
+      handleSolutionFound(expandingSolution.group);
+    }
+  }, [expandingSolution]);
+
+  // Game over effect
+  useEffect(() => {
+    const handleGameOver = async () => {
+      if (isRevealingRef.current || isAnimating) return;
+      
       isRevealingRef.current = true;
-      setIsRevealing(true);
-      // Store the number of solved groups at time of loss
       setSolvedGroupsAtGameOver(solvedGroups.length);
       
-      // Get unsolved groups in order of difficulty
-      const unsolvedGroups = puzzle.solutions
-        .filter(solution => !solvedGroups.some(solved => solved.name === solution.name))
-        .sort((a, b) => a.difficulty - b.difficulty);
-
-      const revealNextGroup = async (index: number) => {
-        if (index >= unsolvedGroups.length) {
-          setGameState(prev => ({ ...prev, gameOver: true }));
-          isRevealingRef.current = false;
-          setIsRevealing(false);
-          setShowGameOver(true);
-          return;
+      // Ensure deselection persists
+      const deselectedPositions = tilePositions.map(tile => ({
+        ...tile,
+        isSelected: false,
+        isAnimating: false
+      }));
+      setTilePositions(deselectedPositions);
+      setGameState(prev => ({ ...prev, selected: [], gameOver: true }));
+      console.log('Dispatching game over event (loss)');
+      const gameOverEvent = new Event('gameOver');
+      window.dispatchEvent(gameOverEvent);
+      
+      // Add a small pause before starting reveal animations
+      await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SOLUTION_PAUSE));
+      
+      await revealUnsolvedGroups(
+        puzzle,
+        solvedGroups,
+        deselectedPositions,
+        handleTilePositionsUpdate,
+        handleSolutionExpand,
+        (solution) => {
+          setSolvedGroups(prev => [...prev, solution]);
+          if (solvedGroups.length + 1 === puzzle.solutions.length) {
+            isRevealingRef.current = false;
+            setIsRevealing(false);
+          }
         }
+      );
 
-        const group = unsolvedGroups[index];
-        const currentRow = solvedGroups.length + index;
+      // Show share modal after all reveals are complete
+      setTimeout(() => {
+        setShowGameOver(true);
+      }, ANIMATION_TIMINGS.SHARE_MODAL_DELAY);
+    };
 
-        // Move tiles and show expanding solution simultaneously
-        setTilePositions(prev => {
-          const remainingTiles = prev.filter(tile => 
-            !solvedGroups.flatMap(s => s.emojis).includes(tile.emoji) &&
-            !unsolvedGroups.slice(0, index).flatMap(s => s.emojis).includes(tile.emoji)
-          );
-
-          // Get tiles for current group
-          const groupTiles = remainingTiles.filter(tile => 
-            group.emojis.includes(tile.emoji)
-          );
-
-          // Center the group horizontally
-          const startCol = (4 - groupTiles.length) / 2;
-          
-          const positionedGroupTiles = groupTiles.map((tile, i) => ({
-            ...tile,
-            gridRow: currentRow,
-            gridCol: startCol + i,
-            isAnimating: true
-          }));
-
-          // Keep solved tiles and previously positioned tiles
-          const solvedTiles = prev.filter(tile => 
-            solvedGroups.some(g => g.emojis.includes(tile.emoji)) ||
-            unsolvedGroups.slice(0, index).flatMap(s => s.emojis).includes(tile.emoji)
-          );
-
-          // Position remaining unmatched tiles below
-          const unpositionedTiles = remainingTiles.filter(tile => 
-            !group.emojis.includes(tile.emoji)
-          ).map((tile, i) => ({
-            ...tile,
-            gridRow: currentRow + 1 + Math.floor(i / 4),
-            gridCol: i % 4,
-            isAnimating: true
-          }));
-
-          return [...solvedTiles, ...positionedGroupTiles, ...unpositionedTiles];
-        });
-
-        // Show expanding solution immediately
-        setExpandingSolution({
-          group: group,
-          startRow: currentRow
-        });
-
-        // Wait for animations to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Add to solved groups
-        setSolvedGroups(prev => [...prev, group]);
-
-        // Clear expanding solution and wait briefly before next group
-        setExpandingSolution(null);
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        // Move to next group
-        revealNextGroup(index + 1);
-      };
-
-      // Start the reveal sequence
-      setTimeout(() => revealNextGroup(0), 500);
+    if (gameState.lives === 0 && !gameState.gameOver && isRevealing) {
+      handleGameOver();
     }
-  }, [gameState.lives, gameState.gameOver, puzzle.solutions, solvedGroups]);
+  }, [gameState.lives, gameState.gameOver, puzzle.solutions, solvedGroups, isAnimating, isRevealing]);
 
-  // Remove the auto-show effect
+  // Handle win condition
   useEffect(() => {
-    if (gameState.gameOver && !showGameOver && !isRevealing) {
+    if (solvedGroups.length === puzzle.solutions.length && !gameState.gameOver) {
+      setGameState(prev => ({ ...prev, gameOver: true }));
+      console.log('Dispatching game over event (win)');
+      const gameOverEvent = new Event('gameOver');
+      window.dispatchEvent(gameOverEvent);
+      // Ensure deselection on win
+      setTilePositions(prev => prev.map(tile => ({
+        ...tile,
+        isSelected: false,
+        isAnimating: false
+      })));
+    }
+  }, [solvedGroups.length, puzzle.solutions.length, gameState.gameOver]);
+
+  // Remove the automatic game over modal trigger since we handle it in the reveal callback
+  useEffect(() => {
+    if (gameState.gameOver && !showGameOver && !isRevealing && gameState.lives > 0) {
+      // Only show immediately for wins, not for losses (handled in reveal callback)
       setShowGameOver(true);
     }
-  }, [gameState.gameOver, showGameOver, isRevealing]);
-
-  // Add a debug effect for lives
-  useEffect(() => {
-    console.log('Lives:', gameState.lives);
-  }, [gameState.lives]);
+  }, [gameState.gameOver, showGameOver, isRevealing, gameState.lives]);
 
   return (
     <div className="w-full max-w-md mx-auto flex flex-col min-h-0">
@@ -536,41 +436,36 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
           solvedGroups,
           MAX_ATTEMPTS,
           gameState.lives,
-          gameState.guesses || []
+          gameState.guesses
         )}
       />
 
-      {/* Message overlay */}
-      <AnimatePresence>
-        {showMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed inset-x-0 top-[20%] flex items-center justify-center z-50 pointer-events-none"
-          >
-            <div className="bg-white/95 text-gray-900 px-6 py-2 rounded-lg shadow-lg text-lg font-medium backdrop-blur-sm border border-gray-200">
-              {showMessage}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <MessageOverlay message={showMessage} />
 
       {/* Game board */}
       <div 
         ref={boardRef}
-        className="relative w-full aspect-square"
+        className="relative w-full aspect-square bg-gray-50"
       >
         {/* Solutions */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
           {solvedGroups.map((group, index) => (
             <ExpandingSolution
               key={`solution-${group.name}-${group.difficulty}`}
               solution={group}
               startRow={index}
-              boardHeight={boardHeight}
+              boardHeight={boardDimensions.height}
             />
           ))}
+          {expandingSolution && (
+            <ExpandingSolution
+              key={`expanding-${expandingSolution.group.name}-${expandingSolution.group.difficulty}`}
+              solution={expandingSolution.group}
+              startRow={expandingSolution.startRow}
+              boardHeight={boardDimensions.height}
+              onAnimationComplete={expandingSolution.onComplete}
+            />
+          )}
         </AnimatePresence>
 
         <motion.div
@@ -600,92 +495,22 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
         </motion.div>
       </div>
 
-      {/* Game controls */}
-      <div className="mt-4 flex justify-center gap-4">
-        <button
-          onClick={() => {
-            const remainingTiles = tilePositions.filter(
-              tile => !solvedGroups.some(group => group.emojis.includes(tile.emoji))
-            );
+      <GameControls
+        onShuffle={handleShuffle}
+        onDeselectAll={() => setGameState(prev => ({ ...prev, selected: [] }))}
+        onSubmit={handleSubmit}
+        selectedCount={gameState.selected.length}
+        isDisabled={isRevealing}
+        solvedGroupsCount={solvedGroups.length}
+        totalGroups={puzzle.solutions.length}
+      />
 
-            // Simple shuffle of remaining tiles
-            const shuffled = remainingTiles
-              .map(value => ({ value, sort: Math.random() }))
-              .sort((a, b) => a.sort - b.sort)
-              .map(({ value }) => value);
-
-            // Assign new positions
-            const newTiles = shuffled.map((tile, index) => ({
-              ...tile,
-              gridRow: Math.floor(index / 4) + solvedGroups.length,
-              gridCol: index % 4,
-              isAnimating: true
-            }));
-
-            // Keep solved tiles and add shuffled ones
-            const solvedTiles = tilePositions.filter(
-              tile => solvedGroups.some(group => group.emojis.includes(tile.emoji))
-            );
-
-            setTilePositions([...solvedTiles, ...newTiles]);
-          }}
-          disabled={solvedGroups.length === puzzle.solutions.length || gameState.lives === 0 || isRevealing}
-          className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Shuffle
-        </button>
-        <button
-          onClick={() => setGameState(prev => ({ ...prev, selected: [] }))}
-          disabled={gameState.selected.length === 0 || isRevealing}
-          className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Deselect All
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={gameState.selected.length !== 4 || isRevealing}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit
-        </button>
-      </div>
-
-      {/* Game status */}
-      <div className="mt-4">
-        {gameState.gameOver ? (
-          <div className="flex items-center justify-center">
-            <button
-              onClick={() => setShowGameOver(true)}
-              className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg 
-                       transition-colors flex items-center gap-2"
-            >
-              <span>View Results</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-lg font-medium mr-2">Mistakes remaining:</span>
-            <div className="flex gap-2 w-[5.5rem] justify-start">
-              {Array.from({ length: MAX_ATTEMPTS }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-3 h-3 rounded-full"
-                  style={{
-                    visibility: i < gameState.lives ? 'visible' : 'hidden'
-                  }}
-                >
-                  <div className="w-full h-full rounded-full bg-gray-300" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <GameStatus
+        isGameOver={gameState.gameOver}
+        onShowResults={() => setShowGameOver(true)}
+        lives={gameState.lives}
+        maxAttempts={MAX_ATTEMPTS}
+      />
     </div>
   );
 }
