@@ -26,12 +26,12 @@ export function ExpandingSolution({
       animate="visible"
       variants={{
         hidden: {
-          clipPath: 'circle(0% at center)',
-          WebkitClipPath: 'circle(0% at center)',
+          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, transparent 0%)',
+          maskImage: 'radial-gradient(circle at center, black 0%, transparent 0%)'
         },
         visible: {
-          clipPath: 'circle(150% at center)',
-          WebkitClipPath: 'circle(150% at center)',
+          WebkitMaskImage: 'radial-gradient(circle at center, black 100%, transparent 100%)',
+          maskImage: 'radial-gradient(circle at center, black 100%, transparent 100%)'
         }
       }}
       onAnimationComplete={onAnimationComplete}
@@ -42,14 +42,14 @@ export function ExpandingSolution({
         left: 0,
         height: rowHeight - gap,
         transform: `translateY(${startRow * rowHeight}px)`,
-        willChange: 'clip-path'
+        zIndex: 20
       }}
       transition={{ 
-        duration: 1.2,
-        ease: [0.23, 1.36, 0.48, 1]
+        duration: 0.5,
+        ease: [0.22, 1, 0.36, 1]
       }}
       className={cn(
-        "z-10 flex flex-col items-center justify-center",
+        "flex flex-col items-center justify-center",
         DIFFICULTY_COLORS[solution.difficulty].solved
       )}
     >
