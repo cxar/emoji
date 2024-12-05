@@ -107,7 +107,7 @@ export async function revealUnsolvedGroups(
     onPositionsUpdate(newPositions);
 
     // Wait for movement animation
-    await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SOLUTION_REVEAL));
+    await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.TILE_MOVEMENT));
 
     // Show the reveal
     await new Promise<void>(resolve => {

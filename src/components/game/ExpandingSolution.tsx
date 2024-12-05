@@ -22,14 +22,18 @@ export function ExpandingSolution({
 
   return (
     <motion.div
-      initial={onAnimationComplete ? { 
-        WebkitMaskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
-        maskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)'
-      } : undefined}
-      animate={onAnimationComplete ? {
-        WebkitMaskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)',
-        maskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
-      } : undefined}
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {
+          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
+          maskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)'
+        },
+        visible: {
+          WebkitMaskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)',
+          maskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
+        }
+      }}
       onAnimationComplete={onAnimationComplete}
       style={{
         width: "100%",
@@ -37,14 +41,7 @@ export function ExpandingSolution({
         position: "absolute",
         left: 0,
         height: rowHeight - gap,
-        transform: `translateY(${startRow * rowHeight}px)`,
-        ...(onAnimationComplete ? {
-          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
-          maskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)'
-        } : {
-          WebkitMaskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)',
-          maskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
-        })
+        transform: `translateY(${startRow * rowHeight}px)`
       }}
       transition={{ 
         duration: 0.5,

@@ -13,7 +13,9 @@ import { MessageOverlay } from './MessageOverlay';
 import { loadSavedState, saveGameState } from '@/lib/game/storage';
 import { generateShareText, shareResults } from '@/lib/game/share';
 import { animateToSolution, revealUnsolvedGroups, calculateBoardPositions } from '@/lib/game/animations';
-import { BoardGameState, MAX_ATTEMPTS, ANIMATION_TIMINGS, BOARD_CONFIG } from '@/types/game';
+import { BoardGameState, MAX_ATTEMPTS, ANIMATION_TIMINGS, BOARD_CONFIG, DIFFICULTY_COLORS } from '@/types/game';
+import ReactDOM from 'react-dom';
+import { cn } from '@/lib/utils';
 
 const initialGameState: BoardGameState = {
   selected: [],
@@ -29,7 +31,7 @@ function getGuessKey(emojis: Emoji[]): string {
 }
 
 interface ExpandingSolutionState {
-  group: Solution;
+  solution: Solution;
   startRow: number;
   onComplete?: () => void;
 }
@@ -184,59 +186,87 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
 
   const handleSolutionExpand = (solution: Solution, row: number, onComplete?: () => void) => {
     setExpandingSolution({
-      group: solution,
+      solution,
       startRow: row,
-      onComplete: () => {
-        onComplete?.();
-        setExpandingSolution(null);
-        setIsAnimating(false);
-      }
+      onComplete
     });
   };
 
   const handleSubmit = async () => {
     if (gameState.selected.length !== 4) return;
     
-    const newSelected = gameState.selected;
+    const newSelected = [...gameState.selected];
     const guessKey = getGuessKey(newSelected);
     
     if (gameState.incorrectGuesses.has(guessKey)) {
-      setShowMessage("Already Guessed");
+      setShowMessage("Already tried!");
       setTimeout(() => setShowMessage(null), ANIMATION_TIMINGS.MESSAGE_DISPLAY);
-      setGameState(prev => ({ ...prev, selected: [] }));
       return;
     }
 
-    const matchingSolution = puzzle.solutions.find(solution =>
-      newSelected.every(e => solution.emojis.includes(e)) &&
-      solution.emojis.every(e => newSelected.includes(e))
-    );
+    // Check if this matches any unsolved group
+    const matchingSolution = puzzle.solutions.find(solution => {
+      if (solvedGroups.some(solved => solved.name === solution.name)) {
+        return false;
+      }
+      return getGuessKey(solution.emojis) === guessKey;
+    });
 
     if (matchingSolution) {
-      if (completedSolutions.has(matchingSolution.name)) {
-        setGameState(prev => ({ ...prev, selected: [] }));
-        return;
-      }
-
-      // Deselect tiles before animation
-      setGameState(prev => ({ ...prev, selected: [] }));
-
-      await animateToSolution(
-        tilePositions,
-        newSelected,
-        [...solvedGroups, matchingSolution],
-        handleTilePositionsUpdate,
-        handleSolutionExpand,
-        (solution) => {
-          setSolvedGroups(prev => [...prev, matchingSolution]);
-          setCompletedSolutions(prev => new Set([...prev, matchingSolution.name]));
-          setGameState(prev => ({
-            ...prev,
-            guesses: [...prev.guesses, newSelected],
-            gameOver: completedSolutions.size + 1 === puzzle.solutions.length
-          }));
-        }
+      setIsAnimating(true);
+      
+      // Clear selection state immediately
+      setGameState(prev => ({
+        ...prev,
+        selected: []
+      }));
+      
+      // Move tiles to position first
+      const newPositions = calculateBoardPositions(
+        tilePositions.map(tile => ({
+          ...tile,
+          isSelected: false,
+          isAnimating: false
+        })),
+        solvedGroups,
+        matchingSolution.emojis
       );
+      setTilePositions(newPositions);
+
+      // Wait for movement animation then show reveal
+      await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.TILE_MOVEMENT));
+      
+      // Do the reveal animation and update state only after it completes
+      await new Promise<void>(resolve => {
+        handleSolutionExpand(matchingSolution, solvedGroups.length, () => {
+          const newGameState = {
+            ...gameState,
+            selected: [],
+            guesses: [...gameState.guesses, newSelected]
+          };
+
+          // Update game state first
+          setGameState(newGameState);
+          setIsAnimating(false);
+
+          // Save state after successful guess
+          saveGameState(
+            puzzle.id,
+            newGameState,
+            [...solvedGroups, matchingSolution],
+            newPositions
+          );
+
+          // Wait a frame before updating solved groups to prevent overlap
+          requestAnimationFrame(() => {
+            setSolvedGroups(prev => [...prev, matchingSolution]);
+            setCompletedSolutions(prev => new Set([...prev, matchingSolution.name]));
+            setExpandingSolution(null);
+          });
+
+          resolve();
+        });
+      });
     } else {
       const isOneAway = puzzle.solutions.some(solution => {
         const matches = newSelected.filter(emoji => 
@@ -312,38 +342,16 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
     }, ANIMATION_TIMINGS.TILE_MOVEMENT);
   };
 
-  // Update positions after solution is complete
+  // Single effect to handle tile positioning
   useEffect(() => {
-    if (expandingSolution) {
-      const newPositions = calculateBoardPositions(tilePositions, solvedGroups);
-      setTilePositions(newPositions);
-    }
-  }, [expandingSolution, solvedGroups]);
+    if (expandingSolution?.solution) {
+      const updatedPositions = tilePositions.map(tile => ({
+        ...tile,
+        isAnimating: false,
+        isSelected: false
+      }));
 
-  // Update tile positions when a solution is found
-  const handleSolutionFound = (solution: Solution) => {
-    const solutionRow = solvedGroups.length;
-    
-    // Update solved tiles to their final positions
-    const updatedPositions = tilePositions.map(tile => {
-      if (solution.emojis.includes(tile.emoji)) {
-        return {
-          ...tile,
-          gridRow: solutionRow,
-          isAnimating: false,
-          isSelected: false
-        };
-      }
-      return tile;
-    });
-
-    setTilePositions(updatedPositions);
-  };
-
-  // Add effect to handle solution completion
-  useEffect(() => {
-    if (expandingSolution) {
-      handleSolutionFound(expandingSolution.group);
+      setTilePositions(updatedPositions);
     }
   }, [expandingSolution]);
 
@@ -370,21 +378,22 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       // Add a small pause before starting reveal animations
       await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SOLUTION_PAUSE));
       
-      await revealUnsolvedGroups(
-        puzzle,
-        solvedGroups,
-        deselectedPositions,
-        handleTilePositionsUpdate,
-        handleSolutionExpand,
-        (solution) => {
-          setSolvedGroups(prev => [...prev, solution]);
-          if (solvedGroups.length + 1 === puzzle.solutions.length) {
-            isRevealingRef.current = false;
-            setIsRevealing(false);
-          }
-        }
-      );
-
+      // Reveal each unsolved group one at a time
+      const unsolvedGroups = puzzle.solutions
+        .filter(solution => !solvedGroups.some(solved => solved.name === solution.name))
+        .sort((a, b) => a.difficulty - b.difficulty);
+      
+      for (const solution of unsolvedGroups) {
+        await new Promise<void>(resolve => {
+          handleSolutionExpand(solution, solvedGroups.length, resolve);
+        });
+        setSolvedGroups(prev => [...prev, solution]);
+        await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SOLUTION_PAUSE));
+      }
+      
+      isRevealingRef.current = false;
+      setIsRevealing(false);
+      
       // Show share modal after all reveals are complete
       setTimeout(() => {
         setShowGameOver(true);
@@ -399,16 +408,23 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
   // Handle win condition
   useEffect(() => {
     if (solvedGroups.length === puzzle.solutions.length && !gameState.gameOver) {
+      // Deselect tiles and prepare for animation
+      const deselectedPositions = tilePositions.map(tile => ({
+        ...tile,
+        isSelected: false,
+        isAnimating: false
+      }));
+      setTilePositions(deselectedPositions);
+      
       setGameState(prev => ({ ...prev, gameOver: true }));
       console.log('Dispatching game over event (win)');
       const gameOverEvent = new Event('gameOver');
       window.dispatchEvent(gameOverEvent);
-      // Ensure deselection on win
-      setTilePositions(prev => prev.map(tile => ({
-        ...tile,
-        isSelected: false,
-        isAnimating: false
-      })));
+      
+      // Show game over modal after a short delay
+      setTimeout(() => {
+        setShowGameOver(true);
+      }, ANIMATION_TIMINGS.SOLUTION_PAUSE);
     }
   }, [solvedGroups.length, puzzle.solutions.length, gameState.gameOver]);
 
@@ -447,20 +463,35 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
         ref={boardRef}
         className="relative w-full aspect-square bg-gray-50"
       >
-        {/* Solutions */}
-        <AnimatePresence mode="popLayout">
-          {solvedGroups.map((group, index) => (
+        {solvedGroups.map((group, index) => (
+          <div
+            key={`static-${group.name}`}
+            className={cn(
+              "absolute top-0 left-0 w-full flex flex-col items-center justify-center z-10",
+              DIFFICULTY_COLORS[group.difficulty].solved
+            )}
+            style={{
+              height: tileSize + "px",
+              transform: `translateY(${index * (tileSize + gap)}px)`,
+              borderRadius: "0.5rem"
+            }}
+          >
+            <span className="font-bold text-black/80 block text-center">
+              {group.name}
+            </span>
+            <div className="flex items-center gap-4 mt-1">
+              {group.emojis.map((emoji) => (
+                <span key={emoji} className="text-4xl">{emoji}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <AnimatePresence mode="wait">
+          {expandingSolution?.solution && (
             <ExpandingSolution
-              key={`solution-${group.name}-${group.difficulty}`}
-              solution={group}
-              startRow={index}
-              boardHeight={boardDimensions.height}
-            />
-          ))}
-          {expandingSolution && (
-            <ExpandingSolution
-              key={`expanding-${expandingSolution.group.name}-${expandingSolution.group.difficulty}`}
-              solution={expandingSolution.group}
+              key={`expanding-${expandingSolution.solution.name}`}
+              solution={expandingSolution.solution}
               startRow={expandingSolution.startRow}
               boardHeight={boardDimensions.height}
               onAnimationComplete={expandingSolution.onComplete}
