@@ -26,12 +26,12 @@ export function ExpandingSolution({
       animate="visible"
       variants={{
         hidden: {
-          WebkitMaskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)',
-          maskImage: 'radial-gradient(circle at center, black 0%, black 0%, transparent 0%)'
+          clipPath: 'circle(0% at center)',
+          WebkitClipPath: 'circle(0% at center)',
         },
         visible: {
-          WebkitMaskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)',
-          maskImage: 'radial-gradient(circle at center, black 100%, black 100%, transparent 100%)'
+          clipPath: 'circle(150% at center)',
+          WebkitClipPath: 'circle(150% at center)',
         }
       }}
       onAnimationComplete={onAnimationComplete}
@@ -41,11 +41,12 @@ export function ExpandingSolution({
         position: "absolute",
         left: 0,
         height: rowHeight - gap,
-        transform: `translateY(${startRow * rowHeight}px)`
+        transform: `translateY(${startRow * rowHeight}px)`,
+        willChange: 'clip-path'
       }}
       transition={{ 
-        duration: 0.5,
-        ease: [0.22, 1, 0.36, 1]
+        duration: 1.2,
+        ease: [0.23, 1.36, 0.48, 1]
       }}
       className={cn(
         "z-10 flex flex-col items-center justify-center",
