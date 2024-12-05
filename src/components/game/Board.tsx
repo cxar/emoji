@@ -369,6 +369,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       if (isRevealingRef.current || isAnimating) return;
       
       isRevealingRef.current = true;
+      setIsRevealing(true);
       setSolvedGroupsAtGameOver(solvedGroups.length);
       
       // Ensure deselection persists
@@ -379,30 +380,46 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       }));
       setTilePositions(deselectedPositions);
       setGameState(prev => ({ ...prev, selected: [], gameOver: true }));
-      console.log('Dispatching game over event (loss)');
-      const gameOverEvent = new Event('gameOver');
-      window.dispatchEvent(gameOverEvent);
       
       // Add a small pause before starting reveal animations
       await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SOLUTION_PAUSE));
       
-      // Reveal each unsolved group one at a time
+      // Sort all solutions by difficulty to ensure correct row placement
       const unsolvedGroups = puzzle.solutions
         .filter(solution => !solvedGroups.some(solved => solved.name === solution.name))
         .sort((a, b) => a.difficulty - b.difficulty);
+
+      // Keep track of all solutions for position calculation
+      let revealedSolutions = [...solvedGroups];
       
       for (const solution of unsolvedGroups) {
+        // Calculate positions based on all revealed solutions so far
+        const newPositions = calculateBoardPositions(
+          tilePositions,
+          revealedSolutions,
+          solution.emojis
+        );
+        setTilePositions(newPositions);
+
+        // Wait for movement animation
+        await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.TILE_MOVEMENT));
+
+        // Show the reveal animation
         await new Promise<void>(resolve => {
-          handleSolutionExpand(solution, solvedGroups.length, resolve);
+          handleSolutionExpand(solution, revealedSolutions.length, resolve);
         });
-        setSolvedGroups(prev => [...prev, solution]);
+
+        // Update both the state and our local tracking
+        revealedSolutions = [...revealedSolutions, solution];
+        setSolvedGroups(revealedSolutions);
+
+        // Wait before next reveal
         await new Promise(resolve => setTimeout(resolve, ANIMATION_TIMINGS.SOLUTION_PAUSE));
       }
-      
+
       isRevealingRef.current = false;
       setIsRevealing(false);
       
-      // Show share modal after all reveals are complete
       setTimeout(() => {
         setShowGameOver(true);
       }, ANIMATION_TIMINGS.SHARE_MODAL_DELAY);
