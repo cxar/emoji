@@ -15,7 +15,10 @@ const openai = new OpenAI({
 
 type AIProvider = 'claude' | 'openai';
 
-export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'openai'): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
+// Get default provider from environment variable
+const DEFAULT_PROVIDER: AIProvider = (process.env.DEFAULT_AI_PROVIDER as AIProvider) || 'openai';
+
+export async function generatePuzzleWithAI(date: Date, provider: AIProvider = DEFAULT_PROVIDER): Promise<Omit<DailyPuzzle, 'id' | 'generated'>> {
   console.log(`Generating puzzle for date ${date} using provider ${provider}`);
   const dateStr = date.toLocaleDateString('en-US', { 
     month: 'long', 
@@ -190,7 +193,7 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED, EITHER IN THE SAME SET OR ACROSS SETS.
   }
 }
 
-export async function getPuzzleForDate(date: Date, provider: AIProvider = 'claude'): Promise<DailyPuzzle> {
+export async function getPuzzleForDate(date: Date, provider: AIProvider = DEFAULT_PROVIDER): Promise<DailyPuzzle> {
   const puzzleId = date.toISOString().split('T')[0];
   console.log(`Getting puzzle for date ${puzzleId}`);
   
@@ -232,11 +235,11 @@ export async function getPuzzleForDate(date: Date, provider: AIProvider = 'claud
   return newPuzzle;
 }
 
-export async function getTodaysPuzzle(provider: AIProvider = 'claude'): Promise<DailyPuzzle> {
+export async function getTodaysPuzzle(provider: AIProvider = DEFAULT_PROVIDER): Promise<DailyPuzzle> {
   return getPuzzleForDate(new Date(), provider);
 }
 
-export async function getTomorrowsPuzzle(provider: AIProvider = 'claude'): Promise<DailyPuzzle> {
+export async function getTomorrowsPuzzle(provider: AIProvider = DEFAULT_PROVIDER): Promise<DailyPuzzle> {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   return getPuzzleForDate(tomorrow, provider);
