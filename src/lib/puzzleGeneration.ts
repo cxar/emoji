@@ -29,7 +29,7 @@ export async function generatePuzzleWithAI(date: Date, provider: AIProvider = DE
   const prompt = `
 Goal:
 Generate a single JSON object representing a daily emoji puzzle (using ${dateStr} for the date), featuring exactly 4 sets of 4 unique emojis each (16 total unique emojis), plus a scrambled "emojis" array. The puzzle's sets should be approachable and meaningful to a broad audience, providing a satisfying "aha" moment without requiring overly niche knowledge.
-If the date is a major holiday, the puzzle should incorporate that holiday's themes & symbols.
+If the date is the exact date of a major holiday, then the puzzle should incorporate that holiday's themes & symbols.
 
 Key Guidelines:
 
@@ -62,8 +62,6 @@ Clear Explanations & Naming:
 
 Output Format:
 Return only one JSON object with the following structure (no extra text outside):
-json
-Copy code
 {
   "solutions": [
     {
