@@ -24,77 +24,79 @@ export async function generatePuzzleWithAI(date: Date, provider: AIProvider = 'o
   });
 
   const prompt = `
-Generate a complex, intriguing emoji-based word association puzzle for the given date (${dateStr}), presented as a single JSON object. The puzzle should not be holiday-themed unless it coincides with a major holiday. It should stand independently and captivate players with unexpected yet logical connections that encourage thoughtful deduction and insight.
-If the date is a major holiday, the puzzle should be themed around that holiday.
+Goal:
+Generate a single JSON object representing a daily emoji puzzle (using ${dateStr} for the date), featuring exactly 4 sets of 4 unique emojis each (16 total unique emojis), plus a scrambled "emojis" array. The puzzle's sets should be approachable and meaningful to a broad audience, providing a satisfying "aha" moment without requiring overly niche knowledge.
+If the date is a major holiday, the puzzle should incorporate that holiday's themes & symbols.
 
-Requirements:
-Overall Structure:
-• Provide exactly 4 sets of 4 unique emojis (16 total unique emojis).
-• Collect all 4 sets into a "solutions" array within a single JSON object. For example:
+Key Guidelines:
 
+Wide Cultural Appeal & Familiarity:
+- Choose themes that are broadly recognizable and not confined to obscure knowledge.
+- Consider everyday concepts (e.g., common meals, widely recognized cultural icons), essential historical inventions, and well-known symbols across global cultures.
+- Avoid sets requiring deep literary, mythological, or niche pop-culture references. Aim for concepts the "everyman" might recognize with some thought.
+
+Balanced Difficulty Distribution:
+- Difficulty 1: A theme that's moderately challenging but reasonably guessable (e.g., items one might find together in daily life, a common category of well-known foods, or widely recognized symbols).
+- Difficulty 2: Slightly trickier, introducing a subtle conceptual link. For example, instruments found in a typical music group or tools from a familiar activity.
+- Difficulty 3: More challenging but still accessible. This might involve common historical breakthroughs or universal concepts (like major inventions or foundational cultural elements).
+- Difficulty 4: The most challenging, yet still fair and guessable. It may relate to iconic global symbols (e.g., national animals or internationally known places). The solver should need some lateral thinking, but once discovered, the link should feel rewarding and logically consistent.
+
+Individual Emoji Relevance:
+- Each emoji in a set must individually support the theme—no "filler" symbols that only make sense after the solution is known.
+- For example, if the theme is "Hearty Breakfast," each emoji is a distinct, commonly recognized breakfast food; if the theme is "National Animals," each emoji directly represents an animal strongly associated with a particular country.
+
+No Trivial or Purely Visual Categories:
+- Avoid sets that are too obvious (e.g., four leaves for the four seasons) or purely based on shape/color alone.
+- Try and pull from different categories of emoji. That means avoid things like "animals" or "food" categories, unless there's more than one such that guessing the theme is difficult.
+- Instead, ensure each group feels like it's grounded in a meaningful concept that's recognizable and not just a pattern of shapes.
+
+No Duplicate Emojis:
+- Each of the 16 emojis must be unique across the entire puzzle.
+
+Clear Explanations & Naming:
+- The "name" of each group should make sense once the connection is understood.
+- The "explanation" should confirm why these four emojis belong together, in a concise manner.
+
+Output Format:
+Return only one JSON object with the following structure (no extra text outside):
+json
+Copy code
 {
   "solutions": [
     {
       "emojis": ["emoji1", "emoji2", "emoji3", "emoji4"],
-      "name": "Group 1", 
+      "name": "Group 1 Title",
       "difficulty": 1,
-      "explanation": "Explanation for group 1."
+      "explanation": "Brief explanation."
     },
     {
       "emojis": ["emoji5", "emoji6", "emoji7", "emoji8"],
-      "name": "Group 2",
+      "name": "Group 2 Title",
       "difficulty": 2,
-      "explanation": "Explanation for group 2."
+      "explanation": "Brief explanation."
     },
     {
       "emojis": ["emoji9", "emoji10", "emoji11", "emoji12"],
-      "name": "Group 3",
+      "name": "Group 3 Title",
       "difficulty": 3,
-      "explanation": "Explanation for group 3."
+      "explanation": "Brief explanation."
     },
     {
       "emojis": ["emoji13", "emoji14", "emoji15", "emoji16"],
-      "name": "Group 4",
+      "name": "Group 4 Title",
       "difficulty": 4,
-      "explanation": "Explanation for group 4."
+      "explanation": "Brief explanation."
     }
-  ]
+  ],
+  "emojis": ["emoji1", ..., "emoji16"]
 }
 
-• Respond only with the JSON object containing all four sets, with no additional text outside the JSON object.
+Do not include any other text in your response. Do not include backticks or language identifiers like "json". Only return the JSON object.
 
-Conceptual Guidelines:
-• Each set must have a distinct, meaningful connection—cultural, conceptual, symbolic, linguistic, or functional—but not an obvious or cliché category.
-• Choose connections that feel naturally satisfying and elegant once revealed.
-• Consider diverse approaches:
+In Summary:
+Use this prompt to produce puzzles with sets similar in spirit and accessibility to the provided examples: iconic categories like "Hearty Breakfast," "Rock Band Essentials," "Pioneering Inventions," and "National Animals." Start with something a bit more obvious for difficulty 1, add some subtlety for difficulty 2, and so forth, ensuring each set is recognizable, thematically tight, and guessable with common knowledge.
 
-Employ subtle symbolic or metaphoric resonances that bridge natural phenomena, technology, art, or science.
-Use linguistic twists or homophones, either within a single language or bridging familiar words in multiple languages.
-Highlight lesser-known scientific or cultural concepts that can be inferred through patterns or recognizable traits (e.g., behaviors of certain animals, properties of materials, conceptual groupings from widely known yet not overly common knowledge areas).
-Integrate thematic patterns that reward curiosity and lateral thinking, prompting players to connect different domains meaningfully rather than rely on obscure trivia.
-
-Aim for each successive set to be more challenging:
-• Difficulty 1 (Moderately Challenging): A subtle but discernible link that most solvers can find with a bit of thought, rather than instantly.
-• Difficulty 2 (More Challenging): A concept that is still accessible but demands more pattern recognition or a small leap of insight.
-• Difficulty 3 (Even More Challenging): A thematic or symbolic connection that requires stepping back to see a bigger picture or recognizing an overarching idea.
-• Difficulty 4 (Similar to Difficulty 3): Similar to difficulty 3.
-
-Quality & Creativity:
-• Avoid trivial sets (e.g., all fruits, the four cardinal directions).
-• Avoid sets that rely on rarefied or arcane knowledge that can't be reasonably deduced. Instead, aim for connections that are "hidden in plain sight," revealed through thoughtful observation.
-• The explanation for each set should be concise, illuminating the exact nature of the link and confirming why these emojis form a coherent group.
-• Encourage variety in emoji choice: mix objects, symbols, animals, cultural icons, technological elements, and natural phenomena.
-• Strive for an overall puzzle that feels like a journey, with each successive set drawing the solver deeper into creative and conceptual thinking.
-
-When deciding, sometimes go with your 3rd or 4th choice to introduce a bit of variety.
-
-Each component of the set should apply to the overall theme of that set, without needing to be in context with the other emojis.
-
-Think really really hard about the theme of each set, by looking at the emojis and thinking about what they have in common.
-
-Final Output:
-• Return only the single JSON object containing all four sets following the structure above.
-• Ensure that the chosen connections and their explanations create a sense of discovery and enjoyment for the solver.
+ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED, EITHER IN THE SAME SET OR ACROSS SETS.
 `;
 
   let responseText: string;
