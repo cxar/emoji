@@ -95,7 +95,12 @@ Return only one JSON object with the following structure (no extra text outside)
 Do not include any other text in your response. Do not include backticks or language identifiers like "json". Only return the JSON object.
 
 In Summary:
-Use this prompt to produce puzzles with sets similar in spirit and accessibility to the provided examples: iconic categories like "Hearty Breakfast," "Rock Band Essentials," "Pioneering Inventions," and "National Animals." Start with something a bit more obvious for difficulty 1, add some subtlety for difficulty 2, and so forth, ensuring each set is recognizable, thematically tight, and guessable with common knowledge.
+Use this prompt to produce puzzles with sets similar in spirit to the provided examples: iconic categories like "Hearty Breakfast," "Rock Band Essentials," "Pioneering Inventions," and "National Animals." Start with something a bit more obvious for difficulty 1, add some subtlety for difficulty 2, and so forth, ensuring each set is recognizable, thematically tight, yet guessable with common knowledge.
+Please blend the themes of the examples and other emoji sets to create something new and interesting.
+Do not lean too heavily on the examples, but do use them as a guide.
+Puzzles should be approachable, but not too easy. Reach across emoji categories to create something new and interesting.
+Avoid obvious themes like "animals" or "food" categories, unless there's more than one such that guessing the theme is difficult.
+Avoid sets that are too similar to each other like "tools" or "instruments". The player should need to think a bit to understand the connection.
 
 ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED, EITHER IN THE SAME SET OR ACROSS SETS.
 `;
@@ -226,7 +231,7 @@ export async function getPuzzleForDate(date: Date, provider: AIProvider = DEFAUL
     emojis: puzzleBase.emojis
   };
   
-  // Store in Redis with 48-hour expiry
+  // Store in Redis with 7-day expiry
   console.log('Storing new puzzle in Redis');
   await redis.set(`puzzle:${puzzleId}`, JSON.stringify(newPuzzle), { ex: 7 * 24 * 60 * 60 });
   
