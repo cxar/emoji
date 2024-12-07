@@ -101,6 +101,18 @@ Do not lean too heavily on the examples, but do use them as a guide.
 Puzzles should be approachable, but not too easy. Reach across emoji categories to create something new and interesting.
 Avoid obvious themes like "animals" or "food" categories, unless there's more than one such that guessing the theme is difficult.
 Avoid sets that are too similar to each other like "tools" or "instruments". The player should need to think a bit to understand the connection.
+Avoid emojis that come from the same category or emoji pack, such as "sports balls", "tools", "animals", "food", "fruits", "instruments", etc.
+Some good examples:
+- "items used when you go camping"
+- "things found on a farm"
+- "harry potter"
+- "greek gods"
+- "monsters"
+- "pollinators"
+- "symbols of wisdom"
+- "magic trick props"
+
+These are just examples, and you should think laterally and come up with your own ideas. Do not copy any of these exactly.
 
 ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED, EITHER IN THE SAME SET OR ACROSS SETS.
 `;
