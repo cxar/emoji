@@ -41,7 +41,7 @@ The following emojis have been used in recent puzzles and should NOT be used aga
 ${recentEmojisStr}
 
 **Holiday Integration:**
-If ${dateStr} is a major holiday, incorporate that holiday's theme thoughtfully, but avoid the most obvious or overused holiday symbols. Choose creative representations that still maintain the puzzle's challenge.
+If ${dateStr} is a major holiday, incorporate that holiday's theme in all 4 sets. Choose creative representations that still maintain the puzzle's challenge.
 
 **Avoid Overused or Obvious Themes:**  
 - **No "luck" sets or culturally specific good-luck symbols.** Avoid themes like four-leaf clovers, Chinese red envelopes, or other culturally exclusive signs of fortune.
@@ -242,7 +242,7 @@ export async function getPuzzleForDate(date: Date, provider: AIProvider = DEFAUL
   
   // Store in Redis with 7-day expiry
   console.log('Storing new puzzle in Redis');
-  await redis.set(`puzzle:${puzzleId}`, JSON.stringify(newPuzzle), { ex: 7 * 24 * 60 * 60 });
+  await redis.set(`puzzle:${puzzleId}`, JSON.stringify(newPuzzle), { ex: 14 * 24 * 60 * 60 });
   
   return newPuzzle;
 }
