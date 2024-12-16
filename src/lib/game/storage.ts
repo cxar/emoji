@@ -26,6 +26,7 @@ export function saveGameState(
   try {
     const saveData: SavedGameState = {
       puzzleId,
+      date: new Date().toISOString().split('T')[0],
       state: {
         ...state,
         incorrectGuesses: Array.isArray(state.incorrectGuesses) 

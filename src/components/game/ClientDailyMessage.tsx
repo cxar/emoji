@@ -18,9 +18,11 @@ export function ClientDailyMessage() {
     const savedState = localStorage.getItem('emoji-connections-state');
     if (savedState) {
       try {
-        const { state } = JSON.parse(savedState);
-        if (state.gameOver) {
-          console.log('Found game over state in storage');
+        const { state, date } = JSON.parse(savedState);
+        const today = new Date().toISOString().split('T')[0];
+        
+        if (state.gameOver && date === today) {
+          console.log('Found game over state for today');
           setIsGameOver(true);
         }
       } catch (e) {

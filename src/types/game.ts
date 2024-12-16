@@ -10,6 +10,7 @@ export interface BoardGameState {
 
 export interface SavedGameState {
   puzzleId: string;
+  date: string;
   state: Omit<BoardGameState, 'incorrectGuesses'> & {
     incorrectGuesses: string[];
   };
