@@ -242,7 +242,7 @@ export async function getPuzzleForDate(date: Date, provider: AIProvider = DEFAUL
   
   // Store in Redis with 7-day expiry
   console.log('Storing new puzzle in Redis');
-  await redis.set(`puzzle:${puzzleId}`, JSON.stringify(newPuzzle), { ex: 14 * 24 * 60 * 60 });
+  await redis.set(`puzzle:${puzzleId}`, JSON.stringify(newPuzzle), { ex: 7 * 24 * 60 * 60 });
   
   return newPuzzle;
 }
