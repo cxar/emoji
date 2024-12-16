@@ -34,40 +34,45 @@ export async function generatePuzzleWithAI(date: Date, provider: AIProvider = DE
 
   const prompt = `
 **Goal:**  
-Generate a single JSON object representing a daily emoji puzzle. The puzzle date is indicated by ${dateStr}. The puzzle must contain exactly **4 distinct sets** of **4 unique emojis each**, for a total of **16 unique emojis**. Additionally, provide a scrambled \`"emojis"\` array containing all 16 emojis in a random order. Each set of 4 emojis must connect to a meaningful theme, and the puzzle should feel fresh and surprising, yet solvable with common knowledge.
+Generate a single JSON object representing a daily emoji puzzle for ${dateStr}. The puzzle must contain exactly **4 distinct sets** of **4 unique emojis each**, totaling **16 unique emojis**, plus a scrambled \`"emojis"\` array. Each set should lead to a meaningful thematic group that is not too obvious or overused, yet still accessible to the average American solver without requiring niche cultural knowledge.
 
 **IMPORTANT - DO NOT USE THESE EMOJIS:**
 The following emojis have been used in recent puzzles and should NOT be used again:
 ${recentEmojisStr}
 
-**Holiday Integration:**  
-- If ${dateStr} corresponds exactly to a major global holiday (e.g., December 25 for Christmas), incorporate that holidays well-known symbols or themes into at least one of the sets.
+**Holiday Integration:**
+If ${dateStr} is a major holiday, incorporate that holiday's theme thoughtfully, but avoid the most obvious or overused holiday symbols. Choose creative representations that still maintain the puzzle's challenge.
 
-**Cultural Accessibility & Broad Recognizability:**  
-- Select concepts and themes that are broadly known around the world or recognizable through common education, media exposure, or everyday life.
-- Avoid niche references that would require specialized knowledge (e.g., very obscure historical figures, highly local traditions, or small fandom references).
-- Consider everyday categories (e.g., home appliances, widely known events, simple cultural symbols) or iconic global items (e.g., famous landmarks, universally recognized mythological creatures, basic scientific concepts).
+**Avoid Overused or Obvious Themes:**  
+- **No "luck" sets or culturally specific good-luck symbols.** Avoid themes like four-leaf clovers, Chinese red envelopes, or other culturally exclusive signs of fortune.
+- **No niche or literary references like Sherlock Holmes.** Avoid themes that require familiarity with specific literary works, obscure historical events, or non-mainstream cultural phenomena.
+- **No obvious established sets** (e.g., playing card suits, math symbols, basic shapes, zodiac signs).
 
-**Difficulty & Thematic Diversity:**  
-- The 4 sets should vary in difficulty:
-  - **Difficulty 1 (Easy):** A slightly challenging but straightforward category. For instance, items from a standard part of daily life, recognizable symbols, or something slightly playful yet not too obscure.
-  - **Difficulty 2 (Moderate):** A subtle conceptual link. Possibly everyday objects tied by a less obvious theme (e.g., tools for a specific but commonly known activity, common items from a shared cultural practice).
-  - **Difficulty 3 (Challenging):** More abstract or conceptual, yet still guessable. Could be historical breakthroughs, universally known archetypes, or foundational cultural elements.
-  - **Difficulty 4 (Hard):** The trickiest and most clever set, but still grounded in recognizable concepts. This might involve a lateral connection (e.g., symbolic representations of something non-obvious) that, once realized, feels satisfying.
+**Cultural Accessibility & Everyday Concepts:**  
+- Stick to concepts that are common knowledge for the average American. Think of everyday life, widely recognized tools, household objects, common activities, or well-known categories from daily experience (e.g., common kitchen utensils, basic clothing items, widely recognized holiday decorations—if it's a major holiday).
+- If referring to holidays, choose globally or nationally recognized holidays and pick symbols that are broadly known (e.g., Jack-o'-lantern for Halloween if it's October 31, but not obscure cultural festival items).
+- Use emojis that evoke a concept known to a broad audience without being overly simplistic or obvious.
 
-**Quality of Sets & Emojis:**  
-- **No filler emojis:** Each chosen emoji must individually contribute to the theme. If the theme is "iconic breakfast foods," each emoji should represent a well-known breakfast item without requiring a stretch in logic.
-- **Avoid purely visual or trivial links:** Don't rely on simple color matches or shape-based connections. The connection should be conceptually meaningful, not just aesthetic.
-- **Avoid overly obvious single-category sets:** A set shouldn't just be four animals or four fruits unless there's a meaningful twist. For instance, four animals that are national symbols of different countries, or four fruits strongly tied to a cultural event, could be acceptable. Aim for conceptual depth.
-- **Diversify emoji choices:** Use emojis from different categories (animals, objects, symbols, people, places, events). Don't group four similar emojis from the same subset (e.g., four sports balls). Strive for variety and uniqueness to increase the puzzle's interest and complexity.
-- **No duplicates:** Ensure no emoji is repeated in any of the four sets or in the overall puzzle. All 16 emojis must be unique.
+**Conceptual, Not Purely Visual:**  
+- Avoid sets that are immediately obvious by sight alone (e.g., four emojis that look similar or come from the same subset).
+- Each group should have a conceptual link that is not too abstract and does not rely on color, shape, or a single category alone. Mix different categories of emojis (objects, foods, symbols, places, etc.) to create a thematic connection.
+- Make sure each chosen emoji clearly supports the theme once the solver makes the connection.
 
-**Clarity in Naming & Explanation:**  
-- Each set should have a clear, concise title ("name") that makes sense once the solver has discovered the connection.
-- Provide a brief but solid 'explanation' for why these four emojis belong together. This helps confirm the solver's guess and should make sense immediately.
+**Difficulty Variation (1 to 4):**  
+- Difficulty 1: Relatively straightforward but not cliché. Perhaps objects commonly found in a particular room of a house or items associated with a well-known activity (e.g., a simple hobby).
+- Difficulty 2: A bit trickier, but still everyday. Maybe items related to a popular form of entertainment, simple common tools for a known task, or items you bring on a certain type of outing.
+- Difficulty 3: More challenging, but still everyday or well-known cultural concepts that are not holiday- or luck-based. For example, icons that represent essential stages in a well-known process, or symbols related to a widely known but not obvious category (e.g., various items associated with a typical American pastime).
+- Difficulty 4: The toughest but still guessable through common knowledge. Possibly a thematic link that requires a bit of thought, like items indirectly representing a well-known concept (e.g., symbols representing common college subjects, everyday items that share a subtle conceptual link).
+
+**No Duplicate Emojis:**  
+- All 16 emojis must be unique across the entire puzzle.
+
+**Clarity & Explanation:**  
+- The \`"name"\` of each group should make sense once the solver finds the connection.
+- The \`"explanation"\` should be a brief statement confirming why these emojis belong together.
 
 **JSON Output Format Only:**  
-Your final response must be **only one JSON object** with this structure and no extra commentary or formatting outside the JSON:
+Return only one JSON object, structured as follows, with no extra commentary or text outside the object:
 
 {
   "solutions": [
@@ -96,21 +101,8 @@ Your final response must be **only one JSON object** with this structure and no 
       "explanation": "Brief explanation."
     }
   ],
-  "emojis": ["emoji1", "emoji2", ... "emoji16"]
-}
-
-**No Additional Text:**  
-Do not include any other text, markdown formatting, or commentary outside of the single JSON object.
-
-**In Summary:**  
-- Aim for freshness, creativity, and thematic variety.
-- Ensure each set's connection is logical and discoverable.
-- Use broad cultural references, everyday concepts, or iconic symbols.
-- Make each difficulty level distinct.
-- Do not repeat emojis.
-- Do NOT use any of the recently used emojis listed above.
-- Present only the required JSON object as output.
-`;
+  "emojis": ["emoji1", ..., "emoji16"]
+}`;
 
   console.log('Prompt:', prompt);
 
