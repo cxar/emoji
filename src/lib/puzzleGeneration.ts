@@ -26,42 +26,49 @@ export async function generatePuzzleWithAI(date: Date, provider: AIProvider = DE
     year: 'numeric' 
   });
 
+  // Get recently used emojis
+  const recentEmojis = await getAllPuzzleEmojis();
+  const recentEmojisStr = recentEmojis.join(', ');
+
+
+
   const prompt = `
-Goal:
-Generate a single JSON object representing a daily emoji puzzle (using ${dateStr} for the date), featuring exactly 4 sets of 4 unique emojis each (16 total unique emojis), plus a scrambled "emojis" array. The puzzle's sets should be approachable and meaningful to a broad audience, providing a satisfying "aha" moment without requiring overly niche knowledge.
-If the date is the exact date of a major holiday, then the puzzle should incorporate that holiday's themes & symbols.
+**Goal:**  
+Generate a single JSON object representing a daily emoji puzzle. The puzzle date is indicated by ${dateStr}. The puzzle must contain exactly **4 distinct sets** of **4 unique emojis each**, for a total of **16 unique emojis**. Additionally, provide a scrambled \`"emojis"\` array containing all 16 emojis in a random order. Each set of 4 emojis must connect to a meaningful theme, and the puzzle should feel fresh and surprising, yet solvable with common knowledge.
 
-Key Guidelines:
+**IMPORTANT - DO NOT USE THESE EMOJIS:**
+The following emojis have been used in recent puzzles and should NOT be used again:
+${recentEmojisStr}
 
-Wide Cultural Appeal & Familiarity:
-- Choose themes that are broadly recognizable and not confined to obscure knowledge.
-- Consider everyday concepts (e.g., common meals, widely recognized cultural icons), essential historical inventions, and well-known symbols across global cultures.
-- Avoid sets requiring deep literary, mythological, or niche pop-culture references. Aim for concepts the "everyman" might recognize with some thought.
+**Holiday Integration:**  
+- If ${dateStr} corresponds exactly to a major global holiday (e.g., December 25 for Christmas), incorporate that holidays well-known symbols or themes into at least one of the sets.
 
-Balanced Difficulty Distribution:
-- Difficulty 1: A theme that's moderately challenging but reasonably guessable (e.g., items one might find together in daily life, a common category of well-known foods, or widely recognized symbols).
-- Difficulty 2: Slightly trickier, introducing a subtle conceptual link. For example, instruments found in a typical music group or tools from a familiar activity.
-- Difficulty 3: More challenging but still accessible. This might involve common historical breakthroughs or universal concepts (like major inventions or foundational cultural elements).
-- Difficulty 4: The most challenging, yet still fair and guessable. It may relate to iconic global symbols (e.g., national animals or internationally known places). The solver should need some lateral thinking, but once discovered, the link should feel rewarding and logically consistent.
+**Cultural Accessibility & Broad Recognizability:**  
+- Select concepts and themes that are broadly known around the world or recognizable through common education, media exposure, or everyday life.
+- Avoid niche references that would require specialized knowledge (e.g., very obscure historical figures, highly local traditions, or small fandom references).
+- Consider everyday categories (e.g., home appliances, widely known events, simple cultural symbols) or iconic global items (e.g., famous landmarks, universally recognized mythological creatures, basic scientific concepts).
 
-Individual Emoji Relevance:
-- Each emoji in a set must individually support the theme—no "filler" symbols that only make sense after the solution is known.
-- For example, if the theme is "Hearty Breakfast," each emoji is a distinct, commonly recognized breakfast food; if the theme is "National Animals," each emoji directly represents an animal strongly associated with a particular country.
+**Difficulty & Thematic Diversity:**  
+- The 4 sets should vary in difficulty:
+  - **Difficulty 1 (Easy):** A slightly challenging but straightforward category. For instance, items from a standard part of daily life, recognizable symbols, or something slightly playful yet not too obscure.
+  - **Difficulty 2 (Moderate):** A subtle conceptual link. Possibly everyday objects tied by a less obvious theme (e.g., tools for a specific but commonly known activity, common items from a shared cultural practice).
+  - **Difficulty 3 (Challenging):** More abstract or conceptual, yet still guessable. Could be historical breakthroughs, universally known archetypes, or foundational cultural elements.
+  - **Difficulty 4 (Hard):** The trickiest and most clever set, but still grounded in recognizable concepts. This might involve a lateral connection (e.g., symbolic representations of something non-obvious) that, once realized, feels satisfying.
 
-No Trivial or Purely Visual Categories:
-- Avoid sets that are too obvious (e.g., four leaves for the four seasons) or purely based on shape/color alone.
-- Try and pull from different categories of emoji. That means avoid things like "animals" or "food" categories, unless there's more than one such that guessing the theme is difficult.
-- Instead, ensure each group feels like it's grounded in a meaningful concept that's recognizable and not just a pattern of shapes.
+**Quality of Sets & Emojis:**  
+- **No filler emojis:** Each chosen emoji must individually contribute to the theme. If the theme is "iconic breakfast foods," each emoji should represent a well-known breakfast item without requiring a stretch in logic.
+- **Avoid purely visual or trivial links:** Don't rely on simple color matches or shape-based connections. The connection should be conceptually meaningful, not just aesthetic.
+- **Avoid overly obvious single-category sets:** A set shouldn't just be four animals or four fruits unless there's a meaningful twist. For instance, four animals that are national symbols of different countries, or four fruits strongly tied to a cultural event, could be acceptable. Aim for conceptual depth.
+- **Diversify emoji choices:** Use emojis from different categories (animals, objects, symbols, people, places, events). Don't group four similar emojis from the same subset (e.g., four sports balls). Strive for variety and uniqueness to increase the puzzle's interest and complexity.
+- **No duplicates:** Ensure no emoji is repeated in any of the four sets or in the overall puzzle. All 16 emojis must be unique.
 
-No Duplicate Emojis:
-- Each of the 16 emojis must be unique across the entire puzzle.
+**Clarity in Naming & Explanation:**  
+- Each set should have a clear, concise title ("name") that makes sense once the solver has discovered the connection.
+- Provide a brief but solid 'explanation' for why these four emojis belong together. This helps confirm the solver's guess and should make sense immediately.
 
-Clear Explanations & Naming:
-- The "name" of each group should make sense once the connection is understood.
-- The "explanation" should confirm why these four emojis belong together, in a concise manner.
+**JSON Output Format Only:**  
+Your final response must be **only one JSON object** with this structure and no extra commentary or formatting outside the JSON:
 
-Output Format:
-Return only one JSON object with the following structure (no extra text outside):
 {
   "solutions": [
     {
@@ -89,37 +96,24 @@ Return only one JSON object with the following structure (no extra text outside)
       "explanation": "Brief explanation."
     }
   ],
-  "emojis": ["emoji1", ..., "emoji16"]
+  "emojis": ["emoji1", "emoji2", ... "emoji16"]
 }
 
-Do not include any other text in your response. Do not include backticks or language identifiers like "json". Only return the JSON object.
+**No Additional Text:**  
+Do not include any other text, markdown formatting, or commentary outside of the single JSON object.
 
-In Summary:
-Use this prompt to produce puzzles with sets similar in spirit to the provided examples: iconic categories like "Hearty Breakfast," "Rock Band Essentials," "Pioneering Inventions," and "National Animals." Start with something a bit more obvious for difficulty 1, add some subtlety for difficulty 2, and so forth, ensuring each set is recognizable, thematically tight, yet guessable with common knowledge.
-Please blend the themes of the examples and other emoji sets to create something new and interesting.
-Do not lean too heavily on the examples, but do use them as a guide.
-Puzzles should be approachable, but not too easy. Reach across emoji categories to create something new and interesting.
-Avoid obvious themes like "animals" or "food" categories, unless there's more than one such that guessing the theme is difficult.
-Avoid sets that are too similar to each other like "tools" or "instruments". The player should need to think a bit to understand the connection.
-Avoid emojis that come from the same category or emoji pack, such as "sports balls", "tools", "animals", "food", "fruits", "instruments", "fast food", "natural disasters", "carnival", etc.
-Some good examples:
-- "items used when you go camping"
-- "things found on a farm"
-- "harry potter"
-- "greek gods"
-- "monsters"
-- "pollinators"
-- "symbols of wisdom"
-- "magic trick props"
-- "morning routine essentials"
-
-
-These are just examples, and you should think laterally and come up with your own ideas. Do not copy any of these exactly.
-Be creative! Think outside the box. Use emojis you wouldn't normally use. Really, try to push the envelope and dig deep with the emojis you choose.
-There are so many to choose from!
-
-ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED, EITHER IN THE SAME SET OR ACROSS SETS.
+**In Summary:**  
+- Aim for freshness, creativity, and thematic variety.
+- Ensure each set's connection is logical and discoverable.
+- Use broad cultural references, everyday concepts, or iconic symbols.
+- Make each difficulty level distinct.
+- Do not repeat emojis.
+- Do NOT use any of the recently used emojis listed above.
+- Present only the required JSON object as output.
 `;
+
+  console.log('Prompt:', prompt);
+
 
   let responseText: string;
 
@@ -184,6 +178,13 @@ ABSOLUTELY NO DUPLICATE EMOJIS ALLOWED, EITHER IN THE SAME SET OR ACROSS SETS.
     if (uniqueEmojis.size !== 16) {
       console.error('Duplicate emojis found in puzzle');
       throw new Error('Duplicate emojis found in puzzle');
+    }
+
+    // Check for recently used emojis
+    const usedRecentEmojis = allEmojis.filter(emoji => recentEmojis.includes(emoji));
+    if (usedRecentEmojis.length > 0) {
+      console.error('Recently used emojis found in puzzle:', usedRecentEmojis);
+      throw new Error('Recently used emojis found in puzzle');
     }
 
     // Validate difficulty levels
@@ -262,4 +263,31 @@ export async function getTomorrowsPuzzle(provider: AIProvider = DEFAULT_PROVIDER
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   return getPuzzleForDate(tomorrow, provider);
+}
+
+export async function getAllPuzzleEmojis(): Promise<string[]> {
+  // Get all puzzle keys from Redis
+  const keys = await redis.keys('puzzle:*');
+  const allEmojis: string[] = [];
+
+  // Fetch and parse each puzzle
+  for (const key of keys) {
+    const puzzleData = await redis.get<DailyPuzzle>(key);
+    if (puzzleData) {
+      if (typeof puzzleData === 'string') {
+        try {
+          const parsed = JSON.parse(puzzleData);
+          if (parsed?.emojis?.length) {
+            allEmojis.push(...parsed.emojis);
+          }
+        } catch (e) {
+          console.error(`Failed to parse puzzle from key ${key}:`, e);
+        }
+      } else if (puzzleData?.emojis?.length) {
+        allEmojis.push(...puzzleData.emojis);
+      }
+    }
+  }
+
+  return [...new Set(allEmojis)]; // Remove duplicates
 }
