@@ -296,7 +296,7 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
       // Set game state
       setGameState(prev => ({
         ...prev,
-        selected: [],
+        selected: newLives > 0 ? prev.selected : [],
         guesses: [...prev.guesses, newSelected],
         incorrectGuesses: new Set([...prev.incorrectGuesses, guessKey]),
         lives: newLives,
