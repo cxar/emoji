@@ -49,7 +49,7 @@ If ${dateStr} is a major holiday, incorporate that holiday's theme in all 4 sets
 - **No obvious established sets** (e.g., playing card suits, math symbols, basic shapes, zodiac signs).
 
 **Cultural Accessibility & Everyday Concepts:**  
-- Stick to concepts that are common knowledge for the average American. Think of everyday life, widely recognized tools, household objects, common activities, or well-known categories from daily experience (e.g., common kitchen utensils, basic clothing items, widely recognized holiday decorations—if it's a major holiday).
+- Stick to concepts that are common knowledge for an American.
 - If referring to holidays, choose globally or nationally recognized holidays and pick symbols that are broadly known (e.g., Jack-o'-lantern for Halloween if it's October 31, but not obscure cultural festival items).
 - Use emojis that evoke a concept known to a broad audience without being overly simplistic or obvious.
 
@@ -57,6 +57,7 @@ If ${dateStr} is a major holiday, incorporate that holiday's theme in all 4 sets
 - Avoid sets that are immediately obvious by sight alone (e.g., four emojis that look similar or come from the same subset).
 - Each group should have a conceptual link that is not too abstract and does not rely on color, shape, or a single category alone. Mix different categories of emojis (objects, foods, symbols, places, etc.) to create a thematic connection.
 - Make sure each chosen emoji clearly supports the theme once the solver makes the connection.
+- Really emphasize the AHA! moment. The puzzle solution should be surprising and fun.
 
 **Difficulty Variation (1 to 4):**  
 - Difficulty 1: Relatively straightforward but not cliché. Perhaps objects commonly found in a particular room of a house or items associated with a well-known activity (e.g., a simple hobby).
