@@ -65,6 +65,9 @@ If ${dateStr} is a major holiday, incorporate that holiday's theme in all 4 sets
 - Difficulty 3: More challenging, but still everyday or well-known cultural concepts that are not holiday- or luck-based. For example, icons that represent essential stages in a well-known process, or symbols related to a widely known but not obvious category (e.g., various items associated with a typical American pastime).
 - Difficulty 4: The toughest but still guessable through common knowledge. Possibly a thematic link that requires a bit of thought, like items indirectly representing a well-known concept (e.g., symbols representing common college subjects, everyday items that share a subtle conceptual link).
 
+The above difficulty examples should serve as a guide, not a strict requirement.
+The only requirement is that the overall puzzle must be challenging and fun.
+
 **No Duplicate Emojis:**  
 - All 16 emojis must be unique across the entire puzzle.
 
