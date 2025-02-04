@@ -69,6 +69,7 @@ If ${dateStr} is a major holiday, incorporate that holiday's theme in all 4 sets
 The above difficulty examples should serve as a guide, not a strict requirement.
 The only requirement is that the overall puzzle must be fun.
 Nothing too vague like "together we rise" or "prevention & nurture". Should be more like "things with stems" or "road trip items"
+Make sure the answers elicit an "ohhh yeah" reaction when solved. 
 
 **No Duplicate Emojis:**  
 - All 16 emojis must be unique across the entire puzzle.
