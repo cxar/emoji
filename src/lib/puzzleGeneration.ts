@@ -139,7 +139,7 @@ Return only one JSON object, structured as follows, with no extra commentary or 
   } else {
     console.log("Using OpenAI for puzzle generation");
     const completion = await openai.chat.completions.create({
-      model: "o3-mini",
+      model: "o1",
       reasoning_effort: "high",
       messages: [
         {
