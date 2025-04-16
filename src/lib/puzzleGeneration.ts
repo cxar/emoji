@@ -25,11 +25,7 @@ export async function generatePuzzleWithAI(
 ): Promise<Omit<DailyPuzzle, "id" | "generated">> {
   console.log(`Generating puzzle for date ${date} using provider ${provider}`);
   console.log("Date:", date);
-  const dateStr = date.toUTCString({
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const dateStr = date.toUTCString();
   console.log("Formatted date string:", dateStr);
 
   // Get recently used emojis
