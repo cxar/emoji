@@ -24,92 +24,51 @@ export async function generatePuzzleWithAI(
   provider: AIProvider = DEFAULT_PROVIDER,
 ): Promise<Omit<DailyPuzzle, "id" | "generated">> {
   console.log(`Generating puzzle for date ${date} using provider ${provider}`);
-  const dateStr = date.toLocaleDateString("en-US", {
+  console.log("Date:", date);
+  const dateStr = date.toUTCString({
     month: "long",
     day: "numeric",
     year: "numeric",
   });
+  console.log("Formatted date string:", dateStr);
 
   // Get recently used emojis
   const recentEmojis = await getAllPuzzleEmojis();
   const recentEmojisStr = recentEmojis.join(", ");
 
   const prompt = `
-**Goal:**  
-Generate a single JSON object representing a daily emoji puzzle for ${dateStr}. The puzzle must contain exactly **4 distinct sets** of **4 unique emojis each**, totaling **16 unique emojis**, plus a scrambled \`"emojis"\` array. Each set should lead to a meaningful thematic group that is not too obvious or overused, yet still accessible to the average American solver without requiring niche cultural knowledge.
+Generate **one** JSON object for an Emoji Connections‑style puzzle dated **${dateStr}**.
 
-**IMPORTANT - DO NOT USE THESE EMOJIS:**
-The following emojis have been used in recent puzzles and should NOT be used again:
-${recentEmojisStr}
+GENERAL RULES
+• 4 groups × 4 distinct emojis ⇒ 16 unique emojis total.  
+• You may not use ANY emojis from this set: [${recentEmojisStr}].  
+• If there is a Major US Holiday on ${dateStr}, then weave that theme into *all* groups.  
+• The puzzle, as a whole, should not be a single theme, UNLESS it is a holiday. All groups should not relate to the same theme.
+• Concepts must be common U.S. knowledge, never niche, lucky‑symbol sets, pure look‑alikes, or word‑stem gimmes.  
+• Each group must combine emojis from ≥2 Unicode sub‑categories (people, objects, food, nature, symbols, flags, etc).  
+• Across the puzzle, groups must target **four different conceptual domains** (e.g., food, sports, travel, music).  
+• Difficulty tiers 1‑4; 1 = easy “a‑ha”, 4 = hard but fair.  
+• Avoid emoji connections that are too confusing or too flimsy of a connection.
+• Group name ≤3 words.  Explanation ≤15 words.
+• Each group must be solvable by an American audience and conceptually known to everyday Americans. That means no niche foreign concepts or references.
 
-**Holiday Integration:**
-If ${dateStr} is a major holiday, incorporate that holiday's theme in all 4 sets. Choose creative representations that still maintain the puzzle's challenge.
+QUALITY GATE
+After drafting, self‑score each group on a 1‑5 “surprise/cleverness” scale.  
+If any <3, regenerate that group (max 3 attempts).  
+Reject puzzles with dupe or banned emojis.
 
-**Avoid Overused or Obvious Themes:**  
-- **No "luck" sets or culturally specific good-luck symbols.** Avoid themes like four-leaf clovers, Chinese red envelopes, or other culturally exclusive signs of fortune.
-- **No niche or literary references like Sherlock Holmes.** Avoid themes that require familiarity with specific literary works, obscure historical events, or non-mainstream cultural phenomena.
-- **No obvious established sets** (e.g., playing card suits, math symbols, basic shapes, zodiac signs).
-
-**Cultural Accessibility & Everyday Concepts:**  
-- Stick to concepts that are common knowledge for an American.
-- If referring to holidays, choose globally or nationally recognized holidays and pick symbols that are broadly known (e.g., Jack-o'-lantern for Halloween if it's October 31, but not obscure cultural festival items).
-- Use emojis that evoke a concept known to a broad audience without being overly simplistic or obvious.
-
-**Conceptual, Not Purely Visual:**  
-- Avoid sets that are immediately obvious by sight alone (e.g., four emojis that look similar or come from the same subset).
-- Each group should have a conceptual link that is not too abstract and does not rely on color, shape, or a single category alone. Mix different categories of emojis (objects, foods, symbols, places, etc.) to create a thematic connection.
-- Make sure each chosen emoji clearly supports the theme once the solver makes the connection.
-
-**Difficulty Variation (1 to 4):**  
-- Difficulty 1: Relatively straightforward but not cliché. Perhaps objects commonly found in a particular room of a house or items associated with a well-known activity (e.g., a simple hobby).
-- Difficulty 2: A bit trickier, but still everyday. Maybe items related to a popular form of entertainment, simple common tools for a known task, or items you bring on a certain type of outing.
-- Difficulty 3: More challenging, but still everyday or well-known cultural concepts that are not holiday- or luck-based. For example, icons that represent essential stages in a well-known process, or symbols related to a widely known but not obvious category (e.g., various items associated with a typical American pastime).
-- Difficulty 4: The toughest but still guessable through common knowledge. Possibly a thematic link that requires a bit of thought, like items indirectly representing a well-known concept (e.g., symbols representing common college subjects, everyday items that share a subtle conceptual link).
-
-The above difficulty examples should serve as a guide, not a strict requirement.
-The only requirement is that the overall puzzle must be fun.
-Nothing too vague like "together we rise" or "prevention & nurture". Should be more like "things with stems" or "road trip items"
-Make sure the answers elicit an "ohhh yeah" reaction when solved. 
-
-**No Duplicate Emojis:**  
-- All 16 emojis must be unique across the entire puzzle.
-
-**Clarity & Explanation:**  
-- The \`"name"\` of each group should make sense once the solver finds the connection.
-- The \`"explanation"\` should be a brief statement confirming why these emojis belong together.
-
-**JSON Output Format Only:**  
-Return only one JSON object, structured as follows, with no extra commentary or text outside the object:
+OUTPUT **ONLY**:
 
 {
-  "solutions": [
-    {
-      "emojis": ["emoji1", "emoji2", "emoji3", "emoji4"],
-      "name": "Group 1 Title",
-      "difficulty": 1,
-      "explanation": "Brief explanation."
-    },
-    {
-      "emojis": ["emoji5", "emoji6", "emoji7", "emoji8"],
-      "name": "Group 2 Title",
-      "difficulty": 2,
-      "explanation": "Brief explanation."
-    },
-    {
-      "emojis": ["emoji9", "emoji10", "emoji11", "emoji12"],
-      "name": "Group 3 Title",
-      "difficulty": 3,
-      "explanation": "Brief explanation."
-    },
-    {
-      "emojis": ["emoji13", "emoji14", "emoji15", "emoji16"],
-      "name": "Group 4 Title",
-      "difficulty": 4,
-      "explanation": "Brief explanation."
-    }
+  "solutions":[
+    {"emojis":[…4…],"name":"…", "difficulty":1,"explanation":"…"},
+    {"emojis":[…4…],"name":"…", "difficulty":2,"explanation":"…"},
+    {"emojis":[…4…],"name":"…", "difficulty":3,"explanation":"…"},
+    {"emojis":[…4…],"name":"…", "difficulty":4,"explanation":"…"}
   ],
-  "emojis": ["emoji1", ..., "emoji16"]
-}`;
+  "emojis":[…16 scrambled…],
+}
+`;
 
   console.log("Prompt:", prompt);
 
@@ -138,18 +97,46 @@ Return only one JSON object, structured as follows, with no extra commentary or 
     console.log("Received response from Claude");
   } else {
     console.log("Using OpenAI for puzzle generation");
-    const completion = await openai.chat.completions.create({
-      model: "o1",
-      reasoning_effort: "high",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
+    const response = await openai.responses.create({
+      model: "o4-mini", // your model
+      instructions:
+        "You are a master puzzle creator. Widely renowned for the high quality of every puzzle you generate.",
+      input: prompt, // the same prompt you passed as messages
+      reasoning: { effort: "high" },
+      text: {
+        format: {
+          type: "json_schema",
+          name: "EmojiConnectionsPuzzle",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              solutions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    emojis: { type: "array", items: { type: "string" } },
+                    name: { type: "string" },
+                    difficulty: { type: "integer", enum: [1, 2, 3, 4] },
+                    explanation: { type: "string" },
+                  },
+                  required: ["emojis", "name", "difficulty", "explanation"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["solutions"],
+            additionalProperties: false,
+          },
         },
-      ],
+      },
     });
+    console.log("Raw API response:", JSON.stringify(response, null, 2));
 
-    responseText = completion.choices[0].message.content || "";
+    responseText = response.output_text;
+    if (!responseText) throw new Error("Empty response content");
+    console.log(responseText);
     console.log("Received response from OpenAI");
   }
 
