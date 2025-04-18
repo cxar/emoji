@@ -94,7 +94,7 @@ OUTPUT **ONLY**:
   } else {
     console.log("Using OpenAI for puzzle generation");
     const response = await openai.responses.create({
-      model: "o4-mini", // your model
+      model: "o3", // your model
       instructions:
         "You are a master puzzle creator. Widely renowned for the high quality of every puzzle you generate.",
       input: prompt, // the same prompt you passed as messages
