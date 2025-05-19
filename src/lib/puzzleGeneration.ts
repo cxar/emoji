@@ -186,10 +186,11 @@ OUTPUT **ONLY**:
     const shuffledEmojis = seededShuffle(allEmojis, puzzleId);
 
     return {
-      solutions: response.solutions.map(({ emojis, name, difficulty }) => ({
+      solutions: response.solutions.map(({ emojis, name, difficulty, explanation }) => ({
         emojis,
         name,
         difficulty,
+        explanation,
       })),
       emojis: shuffledEmojis,
     };
