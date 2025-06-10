@@ -73,8 +73,12 @@ OUTPUT **ONLY**:
   if (provider === "claude") {
     console.log("Using Claude for puzzle generation");
     const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-latest",
-      max_tokens: 1024,
+      model: "claude-opus-4-20250514",
+      max_tokens: 32000,
+      thinking: {
+        type: "enabled",
+        budget_tokens: 30000,
+      },
       temperature: 1,
       messages: [
         {
@@ -84,8 +88,9 @@ OUTPUT **ONLY**:
       ],
     });
 
-    const content = message.content[0];
+    const content = message.content[1];
     if (content.type !== "text") {
+      console.log("Content type:", content.type);
       console.error("Unexpected non-text response from Claude");
       throw new Error("Expected text response from Claude");
     }
@@ -94,7 +99,7 @@ OUTPUT **ONLY**:
   } else {
     console.log("Using OpenAI for puzzle generation");
     const response = await openai.responses.create({
-      model: "o3", // your model
+      model: "o3-pro", // your model
       instructions:
         "You are a master puzzle creator. Widely renowned for the high quality of every puzzle you generate.",
       input: prompt, // the same prompt you passed as messages
