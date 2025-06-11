@@ -75,10 +75,6 @@ OUTPUT **ONLY**:
     const message = await anthropic.messages.create({
       model: "claude-opus-4-20250514",
       max_tokens: 32000,
-      thinking: {
-        type: "enabled",
-        budget_tokens: 30000,
-      },
       temperature: 1,
       messages: [
         {
