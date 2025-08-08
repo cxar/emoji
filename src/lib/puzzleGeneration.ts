@@ -32,28 +32,16 @@ export async function generatePuzzleWithAI(
   const recentEmojis = await getAllPuzzleEmojis();
   const recentEmojisStr = recentEmojis.join(", ");
 
-  const prompt = `
-Generate **one** JSON object for an Emoji Connections‑style puzzle dated **${dateStr}**.
+  const prompt = `You are an expert Emoji Connections puzzle author AND your own validator.
 
-GENERAL RULES
-• 4 groups × 4 distinct emojis ⇒ 16 unique emojis total.  
-• You may not use ANY emojis from this set: [${recentEmojisStr}].  
-• If there is a Major US Holiday on ${dateStr}, then weave that theme into *all* groups.  
-• The puzzle, as a whole, should not be a single theme, UNLESS it is a holiday. All groups should not relate to the same theme.
-• Concepts must be common U.S. knowledge, never niche, lucky‑symbol sets, pure look‑alikes, or word‑stem gimmes.  
-• Each group must combine emojis from ≥2 Unicode sub‑categories (people, objects, food, nature, symbols, flags, etc).  
-• Across the puzzle, groups must target **four different conceptual domains** (e.g., food, sports, travel, music).  
-• Difficulty tiers 1‑4; 1 = easy “a‑ha”, 4 = hard but fair.  
-• Avoid emoji connections that are too confusing or too flimsy of a connection.
-• Group name ≤3 words.  Explanation ≤15 words.
-• Each group must be solvable by an American audience and conceptually known to everyday Americans. That means no niche foreign concepts or references.
+INPUTS
+- dateStr = "${dateStr}"
+- recentEmojisStr = "${recentEmojisStr}"          // do not use any of these
 
-QUALITY GATE
-After drafting, self‑score each group on a 1‑5 “surprise/cleverness” scale.  
-If any <3, regenerate that group (max 3 attempts).  
-Reject puzzles with dupe or banned emojis.
+GOAL
+Generate **exactly one** JSON object for an Emoji Connections-style puzzle dated **${dateStr}**.
 
-OUTPUT **ONLY**:
+OUTPUT **ONLY** (no prose, no backticks):
 
 {
   "solutions":[
@@ -62,8 +50,93 @@ OUTPUT **ONLY**:
     {"emojis":[…4…],"name":"…", "difficulty":3,"explanation":"…"},
     {"emojis":[…4…],"name":"…", "difficulty":4,"explanation":"…"}
   ],
-  "emojis":[…16 scrambled…],
+  "emojis":[…16 scrambled…]
 }
+
+HARD RULES
+1) Inventory
+   • 4 groups × 4 distinct emojis ⇒ 16 unique emojis total.
+   • Reject any emoji seen in recentEmojisStr.
+   • No duplicates, no skin-tone modifiers, no ZWJ/gender variants, no keycap digits/letters, no tag sequences, no regional-indicator flags.
+   • Prefer platform-stable glyphs (avoid highly vendor-dependent ones).
+
+2) Holiday handling
+   • Major US Holiday on dateStr? If YES, weave that holiday into *every* group’s theme while keeping groups in four different domains.
+   • If you cannot be certain there is a major US holiday on dateStr, assume NO.
+   • Examples of “major”: New Year’s Day, MLK Day, Presidents’ Day, Memorial Day, Independence Day, Labor Day, Thanksgiving, Christmas.
+
+3) Diversity & domains
+   • Each group must use emojis from **≥2 Unicode sub-categories** (people, objects, food, nature, symbols, transport, activities, etc).
+   • Across the whole puzzle, target **four different conceptual domains** (e.g., Food, Sports/Games, Travel/Places, Music/Media, Home/Tools, Tech/Internet, Nature/Animals, Emotions/Relationships).
+   • The puzzle must **not** collapse to a single overall theme unless holiday mode is on.
+
+4) Group design
+   • Name ≤ 3 words. Explanation ≤ 15 words.
+   • Connection types must be everyday U.S. knowledge (no niche trivia, no foreign-specific references).
+   • Avoid flimsy links (pure look-alikes, only color/shape matches, “starts with same letter,” emoji-name puns).
+   • Avoid “lucky set” tropes (zodiac, four elements, four seasons) unless in holiday mode and clearly contextualized.
+   • At most one “trap pair” (two emojis that *feel* like they belong elsewhere). If present, call it out in confusability notes (meta).
+
+5) Difficulty calibration
+   • difficulty=1: clear “a-ha,” minimal overlap.
+   • difficulty=2: mild twist or broader category, still fair.
+   • difficulty=3: lateral but common concept; decoys possible but resolvable.
+   • difficulty=4: hardest; still deducible without insider knowledge; no ambiguity.
+
+6) Scrambling
+   • "emojis" must be the union of all 16, **random order** (not grouped).
+
+VALIDATION PIPELINE (must run before output)
+A) Hygiene:
+   - No banned or recentEmojisStr entries.
+   - Exactly 16 unique emojis; each used exactly once.
+   - Each group pulls from ≥2 Unicode sub-categories.
+
+B) Domain separation:
+   - Label each group’s domain; all four domains must be distinct.
+
+C) Confusability audit:
+   - For every emoji, test if it could satisfy another group’s rule. If yes, either:
+     • strengthen that group’s wording/selection, or
+     • swap the emoji for a tighter fit.
+   - End state: At most one intentional “trap pair” in the entire puzzle.
+
+D) Surprise/Cleverness self-score (1–5):
+   - Score each group. If any <3, regenerate that group (up to 3 attempts). If still <3, rebuild the puzzle with new concepts.
+
+E) Cultural fairness:
+   - Remove anything requiring specialized or regional knowledge outside typical U.S. familiarity.
+
+F) Holiday check:
+   - Set meta.holidayApplied accordingly.
+
+AUTHORING TIPS (use, don’t output)
+- Strong categories: “Tailgate foods,” “Airport hassles,” “Things that buzz,” “Camping gear,” “Laundry day,” “Headphones features,” “Pets’ needs,” “Coffee shop items.”
+- To satisfy “≥2 sub-categories,” mix, e.g., people + object, food + symbol, tool + place.
+- Keep explanations concrete (“Items for road trips”) not vague (“Things that go together”).
+- Favor property or frame categories over taxonomies.
+  • Property: “Has a shell,” “Needs charging,” “Makes a sound,” “Things you ‘roll’.”
+  • Frame: “Airport hassles,” “Laundry day,” “Camping gear,” “Road trip.”
+- Build decoy pressure deliberately.
+  • At least 6 emojis should plausibly fit a *second* group at first glance.
+  • Cap at 1 intentional trap pair; document it in meta.
+- Force affordance language in explanations.
+  • Use “used for…,” “worn when…,” “kept in…,” “seen at…,” not vague labels.
+- Tier knobs (how to push difficulty up/down):
+  • d=1: concrete frame, minimal overlap, obvious affordance.
+  • d=2: broader frame or milder property; 2–3 light decoys.
+  • d=3: lateral link (“press,” “roll,” “charge”) with cross-category examples; 3–4 decoys.
+  • d=4: abstract but fair affordance (“things that **flash**” vs color/shape). Decoys look right until you test the affordance.
+- Ban lazy links: pure look-alikes, color-only, letter/word puns, lucky-symbol quartets.
+- Sub-category mix rule stays: every group must combine ≥2 Unicode sub-categories.
+- Confusability test (must pass):
+  1) For each emoji, list other groups it *seems* to fit (0–2).
+  2) If any emoji *actually* satisfies another group’s rule → swap or tighten.
+  3) End state: ≥6 “seems” hits, 0 “actually fits” errors, ≤1 trap pair.
+
+FINAL STEP
+- Produce the JSON object exactly as specified.
+- No extra commentary or keys unless include_meta=true.
 `;
 
   console.log("Prompt:", prompt);
@@ -95,9 +168,9 @@ OUTPUT **ONLY**:
   } else {
     console.log("Using OpenAI for puzzle generation");
     const response = await openai.responses.create({
-      model: "o3-pro", // your model
+      model: "gpt-5", // your model
       instructions:
-        "You are a master puzzle creator. Widely renowned for the high quality of every puzzle you generate.",
+        "You are a master puzzle creator. Widely renowned for the high quality of every puzzle you generate. You particularly excel at Emoji Connections puzzles, which are a type of puzzle where players must identify groups of emojis that share a common theme or connection. This is similar to the game 'Connections' by The New York Times.",
       input: prompt, // the same prompt you passed as messages
       reasoning: { effort: "high" },
       text: {
