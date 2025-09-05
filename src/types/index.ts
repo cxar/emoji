@@ -4,6 +4,7 @@ export interface Solution {
   emojis: Emoji[];
   name: string;
   difficulty: 1 | 2 | 3 | 4;
+  explanation: string;
 }
 
 export interface GameState {
