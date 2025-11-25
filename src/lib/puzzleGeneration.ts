@@ -17,7 +17,43 @@ type AIProvider = "claude" | "openai";
 
 // Get default provider from environment variable
 const DEFAULT_PROVIDER: AIProvider =
-  (process.env.DEFAULT_AI_PROVIDER as AIProvider) || "openai";
+  (process.env.DEFAULT_AI_PROVIDER as AIProvider) || "claude";
+
+const CLAUDE_MODEL = "claude-opus-4-5";
+const CLAUDE_TOTAL_TOKENS = 32000;
+const CLAUDE_THINKING_BUDGET = CLAUDE_TOTAL_TOKENS - 4096;
+
+async function generateClaudeText(prompt: string, model: string) {
+  const stream = await anthropic.messages.create({
+    model,
+    max_tokens: 32000,
+    thinking: { type: "enabled", budget_tokens: CLAUDE_THINKING_BUDGET },
+    temperature: 1,
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    stream: true,
+  });
+
+  let text = "";
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      text += event.delta.text;
+    }
+  }
+
+  if (!text) {
+    throw new Error("Received empty stream from Claude");
+  }
+
+  return { text, modelUsed: model };
+}
 
 export async function generatePuzzleWithAI(
   date: Date,
@@ -32,139 +68,163 @@ export async function generatePuzzleWithAI(
   const recentEmojis = await getAllPuzzleEmojis();
   const recentEmojisStr = recentEmojis.join(", ");
 
-  const prompt = `You are an expert Emoji Connections puzzle author AND your own validator.
+  const prompt = `You are an expert Emoji Connections puzzle designer.
 
-INPUTS
-- dateStr = "${dateStr}"
-- recentEmojisStr = "${recentEmojisStr}"          // do not use any of these
+DATE: ${dateStr}
+BANNED EMOJIS (used recently): ${recentEmojisStr}
 
-GOAL
-Generate **exactly one** JSON object for an Emoji Connections-style puzzle dated **${dateStr}**.
+Create a puzzle with 4 groups of 4 emojis each (16 unique emojis total).
 
-OUTPUT **ONLY** (no prose, no backticks):
+═══════════════════════════════════════
+THE GOLDEN RULE
+═══════════════════════════════════════
+
+Every connection must be TESTABLE and use the SAME SENSE across all four items.
+
+Ask yourself: "Can I apply the exact same definition/usage to all four?"
+
+✓ "Things you peel" → 🍌🧅🍊🥔
+   Test: Do you peel a banana? Yes. An onion? Yes. An orange? Yes. A potato? Yes.
+   Same sense: physical removal of outer layer.
+
+✗ "Things that attract" → 🧲🌟🏆👁️
+   Magnet attracts physically. "Eyes attract attention" is metaphorical.
+   FAILS: mixing literal and figurative senses.
+
+✗ "Things you draw" → ✏️🛁🗡️🩸
+   You draw WITH a pencil, not draw A pencil.
+   FAILS: pencil is the tool, not the object of the verb.
+
+═══════════════════════════════════════
+CONNECTION TYPES THAT WORK
+═══════════════════════════════════════
+
+1. PHYSICAL PROPERTY (same property, testable)
+   "Things with shells" → 🥚🐢🌰🦪
+   "Things that melt" → 🧊🕯️🍦🧀
+   "Things with stripes" → 🦓🐝🚧🎬 (zebra, bee, barrier, clapperboard)
+
+2. CONCRETE FRAME (all LITERALLY present in scenario)
+   "Camping gear" → 🏕️🔦🧭🪓
+   "Found in a wallet" → 💳🪪💵🧾
+   "Thanksgiving table" → 🦃🥧🌽🥔 (turkey, pie, corn, potatoes — actually served)
+
+3. ACTION/VERB (same verb, same sense, noun is the OBJECT not the tool)
+   "Things you crack" → 🥚🦴🔐💪 (crack an egg, crack a bone, crack a code, crack your knuckles)
+   "Things you stuff" → 🧸🦃🫑🧦 (stuff a bear, stuff a turkey, stuff a pepper, stuff a stocking)
+   "Things you draw" → 🛁🗡️🩸🎟️ (draw a bath, draw a sword, draw blood, draw a raffle winner)
+
+4. COMPOUND PHRASES (real, common phrases only)
+   "___ break" → ☕🌅💔🏖️ (coffee break, daybreak, heartbreak, spring break)
+   "___ball" → 🧺👁️❄️🔮 (basketball, eyeball, snowball, crystal ball)
+   "___ house" → 🐕🌳🔥👻 (doghouse, treehouse, firehouse, haunted house)
+
+═══════════════════════════════════════
+CONNECTION TYPES THAT FAIL
+═══════════════════════════════════════
+
+✗ Color/shape only: "Red things," "Round things"
+✗ Vague vibes: "Summer things," "Happy things"
+✗ Aesthetic association: 🍂 for "Thanksgiving table" (leaves aren't literally on the table)
+✗ Homophones/puns: "filed/filleted," "knight/night"
+✗ Letter tricks: "Starts with B"
+✗ Mixed senses: literal + metaphorical uses of same word
+✗ Tool confusion: "things you draw" with ✏️ (that's what you draw WITH)
+✗ Obscure phrases: "fire dog" (most people don't know this term)
+
+═══════════════════════════════════════
+DIFFICULTY LEVELS
+═══════════════════════════════════════
+
+d=1: Obvious category, no distractions
+     "Breakfast foods" → 🥞🍳🥓🧇
+
+d=2: Broader category OR requires one small insight
+     "Things that melt" → 🧊🕯️🍦🧀
+     (Cheese surprises some solvers)
+
+d=3: Lateral link, requires a mental hop
+     "Things you stuff" → 🧸🦃🫑🧦
+     (Stockings and peppers aren't obviously "stuffed" until you think)
+
+d=4: Abstract but fair — solver says "ohhhh" not "that's unfair"
+     "Things you draw" → 🛁🗡️🩸🎟️
+     (Draw a bath, draw a sword, draw blood, draw a winner — same "pull/extract" sense)
+
+The d=4 group must be DEDUCIBLE. If a solver can't reason their way there, it's broken.
+
+═══════════════════════════════════════
+DECOY DESIGN
+═══════════════════════════════════════
+
+A great puzzle has DECOY TENSION: emojis that seem to belong together but don't.
+
+Example: If your groups include:
+- "Things that melt" → 🧊🕯️🍦🧀
+- "Birthday party" → 🎂🎈🎁🎉
+
+Then 🕯️ creates tension — it LOOKS like birthday (candles on cake) but belongs in "melt."
+
+Aim for 4-6 emojis that tempt solvers toward wrong groupings.
+
+═══════════════════════════════════════
+COMPLETE EXAMPLE PUZZLE
+═══════════════════════════════════════
 
 {
-  "solutions":[
-    {"emojis":[…4…],"name":"…", "difficulty":1,"explanation":"…"},
-    {"emojis":[…4…],"name":"…", "difficulty":2,"explanation":"…"},
-    {"emojis":[…4…],"name":"…", "difficulty":3,"explanation":"…"},
-    {"emojis":[…4…],"name":"…", "difficulty":4,"explanation":"…"}
+  "solutions": [
+    {"emojis":["🥞","🍳","🥓","🧇"], "name":"Breakfast Foods", "difficulty":1, "explanation":"Foods typically eaten at breakfast"},
+    {"emojis":["🧊","🕯️","🍦","🧀"], "name":"Things That Melt", "difficulty":2, "explanation":"Items that turn liquid when heated"},
+    {"emojis":["🧸","🦃","🫑","🧦"], "name":"Things You Stuff", "difficulty":3, "explanation":"Stuffed bear, stuffed turkey, stuffed pepper, stuffed stocking"},
+    {"emojis":["🛁","🗡️","🩸","🎟️"], "name":"Things You Draw", "difficulty":4, "explanation":"Draw a bath, draw a sword, draw blood, draw a raffle winner"}
   ],
-  "emojis":[…16 scrambled…]
+  "emojis":["🗡️","🧊","🥓","🧸","🍳","🛁","🕯️","🦃","🧇","🩸","🫑","🍦","🎟️","🥞","🧦","🧀"]
 }
 
-HARD RULES
-1) Inventory
-   • 4 groups × 4 distinct emojis ⇒ 16 unique emojis total.
-   • Reject any emoji seen in recentEmojisStr.
-   • No duplicates, no skin-tone modifiers, no ZWJ/gender variants, no keycap digits/letters, no tag sequences, no regional-indicator flags.
-   • Prefer platform-stable glyphs (avoid highly vendor-dependent ones).
+DECOY ANALYSIS:
+- 🕯️ looks like birthday but is in "melt"
+- 🦃 looks like food but is in "stuff"
+- 🧀 looks like breakfast but is in "melt"
 
-2) Holiday handling
-   • Major US Holiday on dateStr? If YES, weave that holiday into *every* group’s theme while keeping groups in four different domains.
-   • If you cannot be certain there is a major US holiday on dateStr, assume NO.
-   • Examples of “major”: New Year’s Day, MLK Day, Presidents’ Day, Memorial Day, Independence Day, Labor Day, Thanksgiving, Christmas.
+═══════════════════════════════════════
+HARD CONSTRAINTS
+═══════════════════════════════════════
 
-3) Diversity & domains
-   • Each group must use emojis from **≥2 Unicode sub-categories** (people, objects, food, nature, symbols, transport, activities, etc).
-   • Across the whole puzzle, target **four different conceptual domains** (e.g., Food, Sports/Games, Travel/Places, Music/Media, Home/Tools, Tech/Internet, Nature/Animals, Emotions/Relationships).
-   • The puzzle must **not** collapse to a single overall theme unless holiday mode is on.
+- 16 unique emojis, none from banned list
+- No skin tones, flags, keycap digits, or ZWJ sequences
+- Group names ≤ 3 words
+- Explanations ≤ 15 words  
+- All connections must be common U.S. knowledge (no obscure terms)
+- Each group uses emojis from 2+ Unicode subcategories
+- "emojis" array must be randomly shuffled (not grouped)
+- For CONCRETE FRAME categories: every emoji must be LITERALLY present, not just aesthetically associated
+- For VERB categories: each emoji must be the OBJECT of the verb, not the tool
+- HOLIDAY HANDLING: If ${dateStr} is a widely observed US holiday (e.g., New Year’s Day, MLK Day, Presidents’ Day, Memorial Day, Independence Day, Labor Day, Halloween, Thanksgiving, Christmas, Easter, etc.), weave that holiday into all 4 groups while keeping them in four distinct domains. If not, proceed normally without holiday overlay.
 
-4) Group design
-   • Name ≤ 3 words. Explanation ≤ 15 words.
-   • Connection types must be everyday U.S. knowledge (no niche trivia, no foreign-specific references).
-   • Avoid flimsy links (pure look-alikes, only color/shape matches, “starts with same letter,” emoji-name puns).
-   • Avoid “lucky set” tropes (zodiac, four elements, four seasons) unless in holiday mode and clearly contextualized.
-   • At most one “trap pair” (two emojis that *feel* like they belong elsewhere). If present, call it out in confusability notes (meta).
-
-5) Difficulty calibration
-   • difficulty=1: clear “a-ha,” minimal overlap.
-   • difficulty=2: mild twist or broader category, still fair.
-   • difficulty=3: lateral but common concept; decoys possible but resolvable.
-   • difficulty=4: hardest; still deducible without insider knowledge; no ambiguity.
-
-6) Scrambling
-   • "emojis" must be the union of all 16, **random order** (not grouped).
-
-VALIDATION PIPELINE (must run before output)
-A) Hygiene:
-   - No banned or recentEmojisStr entries.
-   - Exactly 16 unique emojis; each used exactly once.
-   - Each group pulls from ≥2 Unicode sub-categories.
-
-B) Domain separation:
-   - Label each group’s domain; all four domains must be distinct.
-
-C) Confusability audit:
-   - For every emoji, test if it could satisfy another group’s rule. If yes, either:
-     • strengthen that group’s wording/selection, or
-     • swap the emoji for a tighter fit.
-   - End state: At most one intentional “trap pair” in the entire puzzle.
-
-D) Surprise/Cleverness self-score (1–5):
-   - Score each group. If any <3, regenerate that group (up to 3 attempts). If still <3, rebuild the puzzle with new concepts.
-
-E) Cultural fairness:
-   - Remove anything requiring specialized or regional knowledge outside typical U.S. familiarity.
-
-F) Holiday check:
-   - Set meta.holidayApplied accordingly.
-
-AUTHORING TIPS (use, don’t output)
-- Strong categories: “Tailgate foods,” “Airport hassles,” “Things that buzz,” “Camping gear,” “Laundry day,” “Headphones features,” “Pets’ needs,” “Coffee shop items.”
-- To satisfy “≥2 sub-categories,” mix, e.g., people + object, food + symbol, tool + place.
-- Keep explanations concrete (“Items for road trips”) not vague (“Things that go together”).
-- Favor property or frame categories over taxonomies.
-  • Property: “Has a shell,” “Needs charging,” “Makes a sound,” “Things you ‘roll’.”
-  • Frame: “Airport hassles,” “Laundry day,” “Camping gear,” “Road trip.”
-- Build decoy pressure deliberately.
-  • At least 6 emojis should plausibly fit a *second* group at first glance.
-  • Cap at 1 intentional trap pair; document it in meta.
-- Force affordance language in explanations.
-  • Use “used for…,” “worn when…,” “kept in…,” “seen at…,” not vague labels.
-- Tier knobs (how to push difficulty up/down):
-  • d=1: concrete frame, minimal overlap, obvious affordance.
-  • d=2: broader frame or milder property; 2–3 light decoys.
-  • d=3: lateral link (“press,” “roll,” “charge”) with cross-category examples; 3–4 decoys.
-  • d=4: abstract but fair affordance (“things that **flash**” vs color/shape). Decoys look right until you test the affordance.
-- Ban lazy links: pure look-alikes, color-only, letter/word puns, lucky-symbol quartets.
-- Sub-category mix rule stays: every group must combine ≥2 Unicode sub-categories.
-- Confusability test (must pass):
-  1) For each emoji, list other groups it *seems* to fit (0–2).
-  2) If any emoji *actually* satisfies another group’s rule → swap or tighten.
-  3) End state: ≥6 “seems” hits, 0 “actually fits” errors, ≤1 trap pair.
-
-FINAL STEP
-- Produce the JSON object exactly as specified.
-- No extra commentary or keys unless include_meta=true.
-`;
+OUTPUT (JSON only, no markdown fences, no commentary):
+{
+  "solutions":[
+    {"emojis":[...4...],"name":"...","difficulty":1,"explanation":"..."},
+    {"emojis":[...4...],"name":"...","difficulty":2,"explanation":"..."},
+    {"emojis":[...4...],"name":"...","difficulty":3,"explanation":"..."},
+    {"emojis":[...4...],"name":"...","difficulty":4,"explanation":"..."}
+  ],
+  "emojis":[...16 shuffled...]
+}`;
 
   console.log("Prompt:", prompt);
 
   let responseText: string;
 
   if (provider === "claude") {
-    console.log("Using Claude for puzzle generation");
-    const message = await anthropic.messages.create({
-      model: "claude-opus-4-20250514",
-      max_tokens: 32000,
-      temperature: 1,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
-    const content = message.content[1];
-    if (content.type !== "text") {
-      console.log("Content type:", content.type);
-      console.error("Unexpected non-text response from Claude");
-      throw new Error("Expected text response from Claude");
-    }
-    responseText = content.text;
-    console.log("Received response from Claude");
+    console.log(
+      `Using Claude model ${CLAUDE_MODEL} with thinking budget ${CLAUDE_THINKING_BUDGET} tokens`,
+    );
+    const claudeResult = await generateClaudeText(prompt, CLAUDE_MODEL);
+    responseText = claudeResult.text;
+    console.log(
+      `Received response from Claude using model ${claudeResult.modelUsed}`,
+    );
   } else {
     console.log("Using OpenAI for puzzle generation");
     const response = await openai.responses.create({
