@@ -498,15 +498,18 @@ export function Board({ puzzle }: { puzzle: DailyPuzzle }) {
               backgroundColor: bgColors[group.difficulty]
             }}
           >
-            <span className="font-bold text-black/80 block text-center">
-              {group.name}
-            </span>
-            <div className="flex items-center gap-4 mt-1">
-              {group.emojis.map((emoji) => (
-                <span key={emoji} className="text-4xl">{emoji}</span>
-              ))}
-            </div>
-          </div>
+        <span className="font-bold text-black/80 block text-center">
+          {group.name}
+        </span>
+        <div className="flex items-center gap-4 mt-1">
+          {group.emojis.map((emoji) => (
+            <span key={emoji} className="text-4xl">{emoji}</span>
+          ))}
+        </div>
+        <p className="text-xs text-gray-700 mt-1 text-center px-2">
+          {group.explanation}
+        </p>
+      </div>
         ))}
 
         <AnimatePresence mode="wait">

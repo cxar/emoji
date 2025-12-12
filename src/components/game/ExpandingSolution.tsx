@@ -44,7 +44,7 @@ export function ExpandingSolution({
         DIFFICULTY_COLORS[solution.difficulty].solved
       )}
       style={{
-        height: tileSize + "px",
+        minHeight: tileSize + "px",
         transform: `translateY(${startRow * rowHeight}px)`,
         backgroundColor: bgColors[solution.difficulty]
       }}
@@ -61,6 +61,9 @@ export function ExpandingSolution({
           <span key={emoji} className="text-4xl">{emoji}</span>
         ))}
       </div>
+      <p className="text-xs text-gray-700 mt-1 text-center px-2">
+        {solution.explanation}
+      </p>
     </motion.div>
   );
-} 
+}
